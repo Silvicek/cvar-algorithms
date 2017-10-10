@@ -6,8 +6,6 @@ from collections import namedtuple
 
 np.random.seed(1337)
 
-# Windy gridworld MDP definition
-# -------------------------------
 
 # helper data structures:
 # a state is given by row and column positions designated (y, x)
@@ -41,11 +39,24 @@ cliff_states = {State(H-1, i) for i in range(2, W - 2)}
 # undiscounted rewards
 gamma = 1.0
 
+
 # iterator over all possible states
-def istates():
+def states():
     for y in range(H):
         for x in range(W):
             yield State(y, x)
+
+
+def target_state(s, a):
+    x, y = s.x, s.y
+    if a == ACTION_LEFT:
+        return State(y, max(x - 1, 0))
+    if a == ACTION_RIGHT:
+        return State(y, min(x + 1, W - 1))
+    if a == ACTION_UP:
+        return State(max(y - 1, 0), x)
+    if a == ACTION_DOWN:
+        return State(min(y + 1, H - 1), x)
 
 
 # returns a list of Transitions from the state s for each action, only non zero probabilities are given
@@ -54,27 +65,23 @@ def transitions(s):
     if s in goal_states:
         return [[Transition(state=s, prob=1.0, reward=0)] for a in actions]
 
-    if s in cliff_states:
-        return [[Transition(state=initial_state, prob=1.0, reward=-100)] for a in actions]
-
-    y, x = s
-
-    t = []
+    transitions_full = []
     for a in actions:
-        t.append(
-            [
-                Transition(state=State(max(y, 0), max(x - 1, 0)), reward=-1.0,
-                           prob=1.0 - RANDOM_ACTION_P if a == ACTION_LEFT else RANDOM_ACTION_P / 3),
-                Transition(state=State(max(y, 0), min(x + 1, W - 1)), reward=-1.0,
-                           prob=1.0 - RANDOM_ACTION_P if a == ACTION_RIGHT else RANDOM_ACTION_P / 3),
-                Transition(state=State(max(y - 1, 0), x), reward=-1.0,
-                           prob=1.0 - RANDOM_ACTION_P if a == ACTION_UP else RANDOM_ACTION_P / 3),
-                Transition(state=State(max(min(y + 1, H - 1), 0), x), reward=-1.0,
-                           prob=1.0 - RANDOM_ACTION_P if a == ACTION_DOWN else RANDOM_ACTION_P / 3)
-            ],
-        )
+        transitions_actions = []
 
-    return t
+        # over all *random* actions
+        for a_ in actions:
+            s_ = target_state(s, a_)
+            if s_ in cliff_states:
+                r = -100
+                s_ = initial_state
+            else:
+                r = -1
+            p = 1.0 - RANDOM_ACTION_P if a_ == a else RANDOM_ACTION_P / 3
+            transitions_actions.append(Transition(s_, p, r))
+        transitions_full.append(transitions_actions)
+
+    return transitions_full
 
 
 # gives a list of states reachable from state s by any available action
@@ -113,11 +120,11 @@ def value_update(Q, P):
     """
     One value update step.
     :param Q: (A, M, N): current Q-values
-    :param P: (M, N): indices of best actions
+    :param P: (M, N): indices of actions to be selected
     :return: (A, M, N): new Q-values
     """
     Q_ = np.array(Q)
-    for s in istates():
+    for s in states():
         for a, action_transitions in enumerate(transitions(s)):
             # TODO: more effective
             t_p = np.array([t.prob for t in action_transitions])
@@ -141,12 +148,39 @@ def value_iteration():
     return Q
 
 
+def eval_fixed_policy(P):
+    Q = np.zeros((4, H, W))
+    i = 0
+    while True:
+        Q_ = value_update(Q, P)
+        if np.all(np.argmax(Q, axis=0) == np.argmax(Q_, axis=0)) and i != 0:
+            break
+        Q = Q_
+        i += 1
+
+    return Q
+
+
+def policy_iteration():
+    Q = np.zeros((4, H, W))
+    i = 0
+    while True:
+        Q_ = eval_fixed_policy(np.argmax(Q, axis=0))
+
+        if np.all(np.argmax(Q, axis=0) == np.argmax(Q_, axis=0)) and i != 0:
+            print("policy fully learned after %d iterations" % (i,))
+            break
+        i += 1
+        Q = Q_
+
+    return Q
+
 
 # gives a state-value function v(s) based on action-value function q(s, a) and policy
 # for debugging and visualization
 def q_to_v(Q, policy):
     Vnew = np.zeros((H, W))
-    for s in istates():
+    for s in states():
         activity_probs = policy(s, Q)
         for a in actions:
             Vnew[s.y, s.x] += activity_probs[a] * Q[a, s.y, s.x]
@@ -185,56 +219,47 @@ def epoch(start_state, policy, Q, max_iters=100):
     return S, A, R
 
 
-# visualizes a single epoch starting at start_state, using a policy which can use
-# an action-value function Q as a parameter
-# shows actions taken as arrows, the color of cells is based on a state-value function
-# which is computed from the action-value function Q
-def show_epoch(start_state, policy, Q, max_iters=100):
-    offsets = {0: (0.4, 0), 1: (-0.4, 0), 2: (0, 0.4), 3: (0, -0.4)}
-    dirs = {0: (-0.8, 0), 1: (0.8, 0), 2: (0, -0.8), 3: (0, 0.8)}
-    S, A, R = epoch(start_state, greedy_policy, Q, max_iters=max_iters)
-    ax = plt.gca()
-    ax.imshow(q_to_v(Q, policy), interpolation='nearest', origin='upper')
-    #     ax.plot([s.x for s in S], [s.y for s in S], c='k')
-    ax.text(start_state[1], start_state[0], 'S', ha='center', va='center', fontsize=20)
-    for s in goal_states:
-        ax.text(s[1], s[0], 'G', ha='center', va='center', fontsize=20)
-    for s, a in zip(S[:-1], A):
-        ax.add_patch(plt.Arrow(s.x + offsets[a][0], s.y + offsets[a][1], dirs[a][0], dirs[a][1]))
-
-    plt.title('reward: {}'.format(np.sum(R)))
-    plt.show()
-
-
-# visualizes a single epoch starting at start_state, using a policy which can use
-# an action-value function Q as a parameter
-# shows actions taken as arrows, the color of cells is based on a state-value function
-# which is computed from the action-value function Q
-def show_results(start_state, policy, Q, max_iters=100):
-    offsets = {0: (0.4, 0), 1: (-0.4, 0), 2: (0, 0.4), 3: (0, -0.4)}
-    dirs = {0: (-0.8, 0), 1: (0.8, 0), 2: (0, -0.8), 3: (0, 0.8)}
+# visualizes the final value function with a fixed policy
+def show_results(start_state, policy, Q):
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     ax = plt.gca()
-    ax.imshow(q_to_v(Q, policy), interpolation='nearest', origin='upper')
-    #     ax.plot([s.x for s in S], [s.y for s in S], c='k')
+
+    # darken cliff
+    V = q_to_v(Q, policy)
+    cool = np.min(V) * 0.7
+    for s in cliff_states:
+        V[s.y, s.x] = cool
+
+    im = ax.imshow(V, interpolation='nearest', origin='upper')
+    plt.tick_params(axis='both', which='both', bottom='off', top='off',
+                    labelbottom='off', right='off', left='off', labelleft='off')
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.05)
+
+    plt.colorbar(im, cax=cax)
+
     ax.text(start_state[1], start_state[0], 'S', ha='center', va='center', fontsize=20)
     for s in goal_states:
         ax.text(s[1], s[0], 'G', ha='center', va='center', fontsize=20)
 
-    for s in istates():
+    # arrows
+    offsets = {0: (0.4, 0), 1: (-0.4, 0), 2: (0, 0.4), 3: (0, -0.4)}
+    dirs = {0: (-0.8, 0), 1: (0.8, 0), 2: (0, -0.8), 3: (0, 0.8)}
+    for s in states():
         if s in cliff_states:
             continue
         if s in goal_states:
             continue
 
         a = np.argmax(policy(s, Q))
-        ax.add_patch(plt.Arrow(s.x + offsets[a][0], s.y + offsets[a][1], dirs[a][0], dirs[a][1]))
+        ax.add_patch(plt.Arrow(s.x + offsets[a][0], s.y + offsets[a][1], dirs[a][0], dirs[a][1], color='white'))
 
     plt.show()
 
 
-
 if __name__ == '__main__':
     Q = value_iteration()
+    # Q = policy_iteration()
     show_results(initial_state, greedy_policy, Q)
 
