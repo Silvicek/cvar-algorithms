@@ -97,17 +97,6 @@ def eval_fixed_policy(P):
     return Q
 
 
-# gives a state-value function v(s) based on action-value function q(s, a) and policy
-# for debugging and visualization
-def q_to_v(Q, policy):
-    Vnew = np.zeros((H, W))
-    for s in states():
-        activity_probs = policy(s, Q)
-        for a in actions:
-            Vnew[s.y, s.x] += activity_probs[a] * Q[a, s.y, s.x]
-    return Vnew
-
-
 # evaluates a single epoch starting at start_state, using a policy which can use
 # an action-value function Q as a parameter
 # returns a triple: states visited, actions taken, rewards taken

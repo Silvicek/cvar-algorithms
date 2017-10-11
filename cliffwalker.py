@@ -13,7 +13,7 @@ State = namedtuple('State', ['y', 'x'])
 Transition = namedtuple('Transition', ['state', 'prob', 'reward'])  # transition to state with probability prob
 
 # height and width of the gridworld
-H, W = 4, 10
+H, W = 2, 3
 
 # available actions
 ACTION_LEFT = 0
@@ -23,7 +23,7 @@ ACTION_DOWN = 3
 actions = [ACTION_LEFT, ACTION_RIGHT, ACTION_UP, ACTION_DOWN]
 
 # the world will make a different action with probability
-RANDOM_ACTION_P = 0.1
+RANDOM_ACTION_P = 0.00
 
 FALL_REWARD = -10
 
@@ -37,7 +37,7 @@ goal_states = {State(H-1, W-1)}
 cliff_states = {State(H-1, i) for i in range(1, W - 1)}
 
 # undiscounted rewards
-gamma = 0.95
+gamma = 1.
 
 
 # iterator over all possible states
