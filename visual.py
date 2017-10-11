@@ -22,6 +22,7 @@ def show_results(start_state, policy, Q):
 
     # darken cliff
     V = q_to_v(Q, policy)
+    print(V)
 
     cool = np.min(V) * 1.1
     for s in cliff_states:

@@ -27,8 +27,8 @@ class RandomVariable:
         p = np.roll(self.p, r)
         p[0] += np.sum(p[r:])
         p[r:] = 0
-        if np.sum(p) != 1.0:
-            print('PROBLEMS', np.sum(p))
+        if abs(np.sum(p) - 1.0) > 0.001:
+            print('PROBLEMS:{:.10f}'.format(np.sum(p)))
         return RandomVariable(p)
 
     def __mul__(self, gamma):
@@ -62,7 +62,8 @@ def policy_iteration():
         expvals = expected_value(Q)
         Q_ = eval_fixed_policy(np.argmax(expvals, axis=0))
 
-        if np.all(np.argmax(expected_value(Q), axis=0) == np.argmax(expected_value(Q_), axis=0)) and i != 0:
+        # if np.all(np.argmax(expected_value(Q), axis=0) == np.argmax(expected_value(Q_), axis=0)) and i != 0:
+        if converged(Q, Q_) and i != 0:
             print("policy fully learned after %d iterations" % (i,))
             break
         i += 1
@@ -164,7 +165,6 @@ def epoch(start_state, policy, Q, max_iters=100):
         i += 1
 
     return S, A, R
-
 
 
 if __name__ == '__main__':

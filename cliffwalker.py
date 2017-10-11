@@ -13,7 +13,9 @@ State = namedtuple('State', ['y', 'x'])
 Transition = namedtuple('Transition', ['state', 'prob', 'reward'])  # transition to state with probability prob
 
 # height and width of the gridworld
-H, W = 2, 3
+# H, W = 2, 3  # small
+# H, W = 5, 10  # big
+H, W = 4, 6  # ideal
 
 # available actions
 ACTION_LEFT = 0
