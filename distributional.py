@@ -1,15 +1,20 @@
 from cliffwalker import *
 import matplotlib.pyplot as plt
 from visual import show_results
+from exp_model import greedy_policy
 
-REWARD_RANGE = (FALL_REWARD, 1)
+REWARD_RANGE = (FALL_REWARD-10, 1)
 
 
 class RandomVariable:
 
     def __init__(self, p=None, z=None):
-        self.z = np.arange(*REWARD_RANGE) if z is None else z
-        self.p = np.ones_like(self.z) / len(self.z) if p is None else p
+        self.z = np.arange(*REWARD_RANGE) if z is None else np.copy(z)
+        if p is None:
+            self.p = np.zeros_like(self.z)
+            self.p[-1] = 1.0
+        else:
+            self.p = np.copy(p)
 
     def expected_value(self):
         return np.dot(self.z, self.p)
@@ -17,13 +22,20 @@ class RandomVariable:
     def __add__(self, r):
         # uses the fact that rewards are all negative ints
         # correct version: z += r
+        if r >= 0:
+            return RandomVariable(p=self.p)
         p = np.roll(self.p, r)
         p[0] += np.sum(p[r:])
         p[r:] = 0
+        if np.sum(p) != 1.0:
+            print('PROBLEMS', np.sum(p))
         return RandomVariable(p)
 
     def __mul__(self, gamma):
-        return RandomVariable(z=gamma*self.z)
+        return RandomVariable(z=gamma*self.z, p=self.p)
+
+    def __str__(self):
+        return 'p:{}\nz:{}'.format(self.p, self.z)
 
     def plot(self):
         ax = plt.gca()
@@ -59,16 +71,10 @@ def policy_iteration():
     return Q
 
 
-# greedy policy gives the best action (based on action value function Q) a probability of 1, others are given 0
-def greedy_policy(s, Q):
-    probs = np.zeros_like(actions, dtype=float)
-    probs[np.argmax(Q[:, s.y, s.x])] = 1.0
-    return probs
-
-
 def init_q():
     Q = np.empty((4, H, W), dtype=object)
     for ix in np.ndindex(Q.shape):
+
         Q[ix] = RandomVariable()
     return Q
 
@@ -76,12 +82,17 @@ def init_q():
 def eval_fixed_policy(P):
     Q = init_q()
     i = 0
+    print('eval')
     while True:
         Q_ = value_update(Q, P)
         if converged(Q, Q_) and i != 0:
+        # if i > 100:
             break
         Q = Q_
         i += 1
+
+    # print(expected_value(Q))
+    # show_results(initial_state, greedy_policy, expected_value(Q))
     return Q
 
 
@@ -114,11 +125,10 @@ def value_update(Q, P):
 
 
 def converged(Q, Q_):
-    # TODO: check actual convergence!!
-    Q = expected_value(Q)
-    Q_ = expected_value(Q_)
+    p = np.array([rv.p for rv in Q.flat])
+    p_ = np.array([rv.p for rv in Q_.flat])
 
-    return np.linalg.norm(Q-Q_)/Q.size < 0.001
+    return np.linalg.norm(p-p_)/Q.size < 0.001
 
 
 # gives a state-value function v(s) based on action-value function q(s, a) and policy

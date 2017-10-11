@@ -23,7 +23,7 @@ ACTION_DOWN = 3
 actions = [ACTION_LEFT, ACTION_RIGHT, ACTION_UP, ACTION_DOWN]
 
 # the world will make a different action with probability
-RANDOM_ACTION_P = 0.00
+RANDOM_ACTION_P = 0.1
 
 FALL_REWARD = -10
 
