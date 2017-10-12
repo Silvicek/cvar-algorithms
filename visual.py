@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 from cliffwalker import *
 
@@ -39,6 +40,8 @@ def show_results(start_state, policy, Q):
     ax.text(start_state[1], start_state[0], 'S', ha='center', va='center', fontsize=20)
     for s in goal_states:
         ax.text(s[1], s[0], 'G', ha='center', va='center', fontsize=20)
+    for s in risky_goal_states:
+        ax.text(s[1], s[0], 'R', ha='center', va='center', fontsize=20)
 
     # arrows
     offsets = {0: (0.4, 0), 1: (-0.4, 0), 2: (0, 0.4), 3: (0, -0.4)}
@@ -48,8 +51,33 @@ def show_results(start_state, policy, Q):
             continue
         if s in goal_states:
             continue
+        if s in risky_goal_states:
+            continue
 
         a = np.argmax(policy(s, Q))
         ax.add_patch(plt.Arrow(s.x + offsets[a][0], s.y + offsets[a][1], dirs[a][0], dirs[a][1], color='white'))
 
     plt.show()
+
+
+def plot_cvars():
+    import pickle
+
+    data = pickle.load(open('stats.pkl', 'rb'))
+
+    cvars = data['cvars']
+    alphas = np.tile(data['alphas'], (len(cvars), 1))
+    ax = plt.gca()
+    ax.plot(alphas.T, cvars.T, '-')
+    ax.set_xscale('log')
+    ax.set_xticks(alphas[0])
+    ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+    ax.invert_xaxis()
+    ax.set_ylim([-50, -10])
+    ax.legend(data['names'])
+    plt.show()
+
+
+if __name__ == '__main__':
+
+    plot_cvars()
