@@ -5,7 +5,7 @@ import exp_model
 
 
 MIN_VALUE = FALL_REWARD-50
-MAX_VALUE = 30
+MAX_VALUE = 100
 
 
 class RandomVariable:
@@ -14,7 +14,8 @@ class RandomVariable:
         self.z = np.arange(MIN_VALUE, MAX_VALUE+1) if z is None else np.copy(z)
         if p is None:
             self.p = np.zeros_like(self.z)
-            self.p[-1] = 1.0
+            zero_ix, = np.where(self.z == 0)
+            self.p[zero_ix] = 1.0
         else:
             self.p = np.copy(p)
 
@@ -57,21 +58,25 @@ class RandomVariable:
         i, = np.where(self.z == var)
         # print(var, i, self.z)
         alpha = np.sum(self.p[:i[0]+1])
-        if alpha == 0:  # XXX: this can happen in goal states, ignore
-            alpha = 1.
+
         return alpha
 
     def __add__(self, r):
         # uses the fact that rewards are all negative ints
         # correct version: z += r
-        if r >= 0:
-            return RandomVariable(p=self.p)
-        p = np.roll(self.p, r)
-        p[0] += np.sum(p[r:])
-        p[r:] = 0
-        if abs(np.sum(p) - 1.0) > 0.001:
-            print('PROBLEMS:{:.10f}'.format(np.sum(p)))
-        return RandomVariable(p)
+        if r == 0:
+            p = self.p
+        elif r > 0:
+            p = np.roll(self.p, r)
+            p[-1] += np.sum(p[:r])
+            p[:r] = 0
+        else:
+            p = np.roll(self.p, r)
+            p[0] += np.sum(p[r:])
+            p[r:] = 0
+            if abs(np.sum(p) - 1.0) > 0.001:
+                print('PROBLEMS:{:.10f}'.format(np.sum(p)))
+        return RandomVariable(p=p)
 
     def __mul__(self, gamma):
         return RandomVariable(z=gamma*self.z, p=self.p)
