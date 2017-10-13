@@ -1,11 +1,14 @@
 from cliffwalker import *
 import matplotlib.pyplot as plt
+import numpy as np
 from visual import show_results
 import exp_model
 
+np.random.seed(1337)
 
-MIN_VALUE = FALL_REWARD-50
-MAX_VALUE = 0
+
+MIN_VALUE = FALL_REWARD-100
+MAX_VALUE = 100
 
 
 def clip(ix):
@@ -131,21 +134,29 @@ class Policy:
         raise NotImplementedError()
 
     def reset(self):
-        raise NotImplementedError()
+        pass
+
+
+class FixedPolicy(Policy):
+    __name__ = 'Fixed'
+
+    def __init__(self, P, alpha=None):
+        self.P = P
+
+    def next_action(self, t):
+        return self.P[t.state.y, t.state.x]
 
 
 class GreedyPolicy(Policy):
     __name__ = 'Greedy'
 
-    def __init__(self, Q, alpha):
+    def __init__(self, Q, alpha=None):
         self.Q = Q
 
     def next_action(self, t):
         s = t.state
         return np.argmax(expected_value(self.Q[:, s.y, s.x]))
 
-    def reset(self):
-        pass
 
 
 class NaiveCvarPolicy(Policy):
@@ -154,9 +165,6 @@ class NaiveCvarPolicy(Policy):
     def __init__(self, Q, alpha):
         self.Q = Q
         self.alpha = alpha
-
-    def reset(self):
-        pass
 
     def next_action(self, t):
         s = t.state
@@ -347,12 +355,16 @@ def policy_stats(policy, alpha, nb_epochs=10000, verbose=True):
         policy.reset()
         rewards[i] = np.sum(R)
 
+    # clip to make the decision distribution more realistic
+    rewards = np.clip(rewards, MIN_VALUE, MAX_VALUE)
+
     var, cvar = cvar_from_samples(rewards, alpha)
     if verbose:
         print('----------------')
         print(policy.__name__)
         print('expected value=', np.mean(rewards))
         print('cvar_{}={}'.format(alpha, cvar))
+        # print('var_{}={}'.format(alpha, var))
         print('----------------')
 
     return cvar
@@ -383,7 +395,6 @@ def exhaustive_stats(*args):
     plot_cvars()
 
 
-
 # evaluates a single epoch starting at start_state, using a policy which can use
 # an action-value function Q as a parameter
 # returns a triple: states visited, actions taken, rewards taken
@@ -412,14 +423,26 @@ def epoch(start_state, policy, max_iters=100):
     return S, A, R
 
 
+def sample_tests(p, z):
+
+    for i in range(2, 7):
+        x = np.random.choice(z, size=(int(10**i)), p=p)
+        print(len(x),)
+        var, cvar = cvar_from_samples(x, alpha)
+        print('1e{} - sample var: {}, cvar: {}'.format(i, var, cvar))
+
+
 if __name__ == '__main__':
+
+    # TODO: investigate why exp/cvar from starting state don't add up with samples
+    # TODO: visualize runs to check differences between true and naive
 
     # exhaustive_stats(GreedyPolicy, AlphaBasedPolicy, NaiveCvarPolicy)
 
     Q = policy_iteration()
 
-    alpha = 0.001
-    nb_epochs = 100000
+    alpha = 0.25
+    nb_epochs = 10000
     greedy_policy = GreedyPolicy(Q, alpha)
     alpha_policy = AlphaBasedPolicy(Q, alpha=alpha)
     naive_cvar_policy = NaiveCvarPolicy(Q, alpha=alpha)

@@ -1,8 +1,5 @@
-import numpy as np
 from itertools import chain
 from collections import namedtuple
-
-np.random.seed(1337)
 
 
 # helper data structures:
@@ -36,6 +33,7 @@ initial_state = State(H-1, 0)
 goal_states = {State(H-1, W-1)}
 
 # special state to promote risk-averse behavior
+# risky_goal_states = {State(0, W-1)}
 risky_goal_states = {}
 
 # set of cliff states
@@ -75,7 +73,7 @@ def transitions(s):
 
     if s in risky_goal_states:
         goal = next(iter(goal_states))
-        return [[Transition(state=goal, prob=0.09, reward=-10), Transition(state=goal, prob=0.91, reward=150)] for a in actions]
+        return [[Transition(state=goal, prob=0.15, reward=-50), Transition(state=goal, prob=0.85, reward=100)] for a in actions]
 
     transitions_full = []
     for a in actions:
