@@ -13,9 +13,9 @@ State = namedtuple('State', ['y', 'x'])
 Transition = namedtuple('Transition', ['state', 'prob', 'reward'])  # transition to state with probability prob
 
 # height and width of the gridworld
-H, W = 3, 3  # small
+# H, W = 2, 3  # small
 # H, W = 5, 10  # big
-# H, W = 4, 6  # ideal
+H, W = 4, 6  # ideal
 
 # available actions
 ACTION_LEFT = 0
@@ -36,13 +36,10 @@ initial_state = State(H-1, 0)
 goal_states = {State(H-1, W-1)}
 
 # special state to promote risk-averse behavior
-# XXX: will only work with full iteration - it's skewed with greedy init
-risky_goal_states = {State(0, W-1)}
-# risky_goal_states = {}
+risky_goal_states = {}
 
 # set of cliff states
-# cliff_states = {State(H-1, i) for i in range(1, W - 1)}
-cliff_states = {}
+cliff_states = {State(H-1, i) for i in range(1, W - 1)}
 
 # undiscounted rewards
 gamma = 1.
@@ -78,7 +75,7 @@ def transitions(s):
 
     if s in risky_goal_states:
         goal = next(iter(goal_states))
-        return [[Transition(state=goal, prob=0.1, reward=-10), Transition(state=goal, prob=0.9, reward=10)] for a in actions]
+        return [[Transition(state=goal, prob=0.09, reward=-10), Transition(state=goal, prob=0.91, reward=150)] for a in actions]
 
     transitions_full = []
     for a in actions:

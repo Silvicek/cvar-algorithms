@@ -5,7 +5,11 @@ import exp_model
 
 
 MIN_VALUE = FALL_REWARD-50
-MAX_VALUE = 100
+MAX_VALUE = 0
+
+
+def clip(ix):
+    return max(0, min(MAX_VALUE - MIN_VALUE, ix))
 
 
 class RandomVariable:
@@ -52,6 +56,21 @@ class RandomVariable:
             var = self.z[i]
 
         return var
+
+    def var_index(self, alpha):
+        if alpha > 0.999:
+            return len(self.z)-1
+        p = 0.
+        i = 0
+        while p < alpha:
+            p += self.p[i]
+            i += 1
+
+        if p == alpha:
+            # TODO: check
+            return i-1
+        else:
+            return i-1
 
     def alpha_from_var(self, var):
         # TODO: deal with discrete distributions
@@ -108,7 +127,7 @@ class Policy:
 
     __name__ = 'Policy'
 
-    def next_action(self, s, r):
+    def next_action(self, t):
         raise NotImplementedError()
 
     def reset(self):
@@ -121,7 +140,8 @@ class GreedyPolicy(Policy):
     def __init__(self, Q, alpha):
         self.Q = Q
 
-    def next_action(self, s, r):
+    def next_action(self, t):
+        s = t.state
         return np.argmax(expected_value(self.Q[:, s.y, s.x]))
 
     def reset(self):
@@ -138,7 +158,8 @@ class NaiveCvarPolicy(Policy):
     def reset(self):
         pass
 
-    def next_action(self, s, r):
+    def next_action(self, t):
+        s = t.state
         action_distributions = self.Q[:, s.y, s.x]
         a = np.argmax([d.cvar(self.alpha) for d in action_distributions])
         return a
@@ -151,36 +172,77 @@ class AlphaBasedPolicy(Policy):
         self.Q = Q
         self.init_alpha = alpha
         self.alpha = alpha
-        self.var = None
+        self.s_old = None
+        self.a_old = None
 
-    def next_action(self, s, r):
+    def next_action(self, t):
+        s = t.state
+
         action_distributions = self.Q[:, s.y, s.x]
         old_action = np.argmax(expected_value(action_distributions))
 
         if self.alpha > 0.999:
             return old_action
 
-        if self.var is not None:
-            self.alpha = action_distributions[old_action].alpha_from_var(min(MAX_VALUE, (self.var - r)/gamma))
+        if self.s_old is not None:
+            self.update_alpha(self.s_old, self.a_old, t)
+        a = np.argmax([d.cvar(self.alpha) for d in action_distributions])
+        self.s_old = s
+        self.a_old = a
 
-        # XXX: same cvar => problem
-        # TODO: deal with this?
-        cvars = np.array([d.cvar(self.alpha) for d in action_distributions])
-        if len(np.unique(cvars)) == 1:
-            a = old_action
-        else:
-            a = np.argmax([d.cvar(self.alpha) for d in action_distributions])
-        self.var = action_distributions[a].var(self.alpha)
-
-        # print('s: {}, r: {}, alpha: {}, var:{}'.format(s, r, self.alpha, self.var))
-        # self.Q[a, s.y, s.x].plot()
-
-        # return np.argmax(expected_value(Q[:, s.y, s.x]))
         return a
+
+    def update_alpha(self, s, a, t):
+        """
+        Correctly updates next alpha with discrete variables.
+        :param s: state we came from
+        :param a: action we took
+        :param t: transition we sampled
+        """
+        s_ = t.state
+        s_dist = self.Q[a, s.y, s.x]
+
+        a_ = np.argmax(expected_value(self.Q[:, s_.y, s_.x]))
+
+        s__dist = self.Q[a_, s_.y, s_.x]
+
+        var_ix = s_dist.var_index(self.alpha)  # TODO: check
+
+        var__ix = clip(var_ix - t.reward)
+
+        # prob before var
+        p_pre = np.sum(s_dist.p[:var_ix])
+        # prob at var
+        p_var = s_dist.p[var_ix]
+        # prob before next var
+        p__pre = np.sum(s__dist.p[:var__ix])
+        # prob at next var
+        p__var = s__dist.p[var__ix]
+
+        # how much does t add to the full var
+        p_portion = (t.prob * p__var) / self.p_portion_sum(s, a, var_ix)
+
+        # we care about this portion of var
+        p_active = (self.alpha - p_pre) / p_var
+
+        self.alpha = p__pre + p_active * p__var * p_portion
+        # print(self.alpha)
+
+    def p_portion_sum(self, s, a, var_ix):
+
+        p_portion = 0.
+
+        for t_ in transitions(s)[a]:
+            action_distributions = self.Q[:, t_.state.y, t_.state.x]
+            a_ = np.argmax(expected_value(action_distributions))
+            p_portion += t_.prob*action_distributions[a_].p[clip(var_ix - t_.reward)]
+
+        return p_portion
 
     def reset(self):
         self.alpha = self.init_alpha
-        self.var = None
+        self.s_old = None
+        self.a_old = None
 
 
 # ===================== algorithms
@@ -276,7 +338,7 @@ def q_to_v(Q, policy):
     return Vnew
 
 
-def policy_stats(policy, alpha, nb_epochs=1000, verbose=True):
+def policy_stats(policy, alpha, nb_epochs=10000, verbose=True):
 
     rewards = np.zeros(nb_epochs)
 
@@ -317,6 +379,8 @@ def exhaustive_stats(*args):
     pickle.dump({'cvars': cvars, 'alphas': alphas, 'names': names}, open('stats.pkl', 'wb'))
     print(cvars)
 
+    from visual import plot_cvars
+    plot_cvars()
 
 
 
@@ -330,8 +394,9 @@ def epoch(start_state, policy, max_iters=100):
     R = []
     i = 0
     r = 0
+    t = Transition(s, 0, 0)
     while s not in goal_states and i < max_iters:
-        a = policy.next_action(s, r)
+        a = policy.next_action(t)
         A.append(a)
         trans = transitions(s)[a]
         state_probs = [tran.prob for tran in trans]
@@ -353,13 +418,14 @@ if __name__ == '__main__':
 
     Q = policy_iteration()
 
-    alpha = 0.1
+    alpha = 0.001
+    nb_epochs = 100000
     greedy_policy = GreedyPolicy(Q, alpha)
     alpha_policy = AlphaBasedPolicy(Q, alpha=alpha)
     naive_cvar_policy = NaiveCvarPolicy(Q, alpha=alpha)
 
-    policy_stats(greedy_policy, alpha)
-    policy_stats(alpha_policy, alpha)
-    policy_stats(naive_cvar_policy, alpha)
+    policy_stats(greedy_policy, alpha, nb_epochs=nb_epochs)
+    policy_stats(alpha_policy, alpha, nb_epochs=nb_epochs)
+    policy_stats(naive_cvar_policy, alpha, nb_epochs=nb_epochs)
 
     # show_results(initial_state, exp_model.greedy_policy, expected_value(Q))
