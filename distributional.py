@@ -206,7 +206,7 @@ class AlphaBasedPolicy(Policy):
 
         s__dist = self.Q[a_, s_.y, s_.x]
 
-        var_ix = s_dist.var_index(self.alpha)  # TODO: check
+        var_ix = s_dist.var_index(self.alpha)
 
         var__ix = clip(var_ix - t.reward)
 
@@ -382,14 +382,27 @@ def converged(Q, Q_):
     return np.linalg.norm(p-p_)/Q.size < 0.001
 
 
-def policy_stats(policy, alpha, nb_epochs=10000, verbose=True):
-
+def several_epochs(arg):
+    policy, nb_epochs = arg
     rewards = np.zeros(nb_epochs)
 
     for i in range(nb_epochs):
         S, A, R = epoch(initial_state, policy)
         policy.reset()
         rewards[i] = np.sum(R)
+
+    return rewards
+
+
+def policy_stats(policy, alpha, nb_epochs, verbose=True):
+    import copy
+    import multiprocessing as mp
+    threads = 4
+
+    with mp.Pool(threads) as p:
+        rewards = p.map(several_epochs, [(copy.deepcopy(policy), int(nb_epochs/threads)) for _ in range(threads)])
+
+    rewards = np.array(rewards).flatten()
 
     # clip to make the decision distribution more realistic
     rewards = np.clip(rewards, MIN_VALUE, MAX_VALUE)
@@ -406,7 +419,6 @@ def policy_stats(policy, alpha, nb_epochs=10000, verbose=True):
 
 
 def exhaustive_stats(*args):
-    # TODO: parallel (or in stats)
     Q = policy_iteration()
 
     alphas = np.array([1.0, 0.5, 0.3, 0.1, 0.05, 0.025, 0.01, 0.005, 0.001])
@@ -419,7 +431,7 @@ def exhaustive_stats(*args):
         for j, alpha in enumerate(alphas):
             pol = policy(Q, alpha)
 
-            cvars[i, j] = policy_stats(pol, alpha=alpha, verbose=False, nb_epochs=int(1e6))
+            cvars[i, j] = policy_stats(pol, alpha=alpha, nb_epochs=int(1e6), verbose=False)
 
             print('{}_{} done...'.format(pol.__name__, alpha))
 
