@@ -43,10 +43,9 @@ gamma = 1.
 
 
 # risky setting alpha = 0.25
-# RANDOM_ACTION_P = 0.01  # risky
+# RANDOM_ACTION_P = 0.1  # risky
 # goal_states = {State(1, W-1)}  # risky
 # risky_goal_states = {State(H-1, W-1)}  # risky
-
 
 
 # iterator over all possible states

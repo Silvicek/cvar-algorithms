@@ -6,10 +6,11 @@ from util import q_to_v_argmax
 import time
 
 np.random.seed(1337)
+np.set_printoptions(3)
 
 
 MIN_VALUE = FALL_REWARD-50
-MAX_VALUE = 100
+MAX_VALUE = 0
 
 
 def clip(ix):
@@ -243,6 +244,45 @@ class AlphaBasedPolicy(Policy):
         self.a_old = None
 
 
+class VarBasedPolicy(Policy):
+    __name__ = 'VaR-based CVaR'
+
+    def __init__(self, Q, alpha):
+        self.Q = Q
+        self.alpha = alpha
+        self.var = None
+
+    def next_action(self, t):
+
+        action_distributions = self.Q[:, t.state.y, t.state.x]
+
+        if self.var is None:
+            cvars = cvar(action_distributions, self.alpha)
+            a = np.argmax(cvars)
+            self.var = action_distributions[a].var(self.alpha)
+        else:
+            self.var = np.clip((self.var - t.reward) / gamma, MIN_VALUE, MAX_VALUE)
+
+
+
+        # E[(X-s)^-]
+        def exp_(dist, s):
+            var_ix = int(MAX_VALUE - MIN_VALUE + s + 1)
+            p = np.sum(dist.p[:var_ix])
+            e = np.dot(dist.p[:var_ix], dist.z[:var_ix])
+            return np.array([p*e, p, e])
+
+        # print(self.var)
+        # exps = np.array([exp_(d, self.var) for d in action_distributions])
+        # print(exps)
+
+        a = np.argmax([exp_(d, self.var)[0] for d in action_distributions])
+
+        return a
+
+    def reset(self):
+        self.var = None
+
 # ===================== algorithms
 def expected_value(rv):
     return rv.expected_value()
@@ -429,7 +469,7 @@ def epoch(start_state, policy, max_iters=100, plot_machine=None):
     return S, A, R
 
 
-def sample_tests(p, z):
+def sample_runs(p, z):
 
     for i in range(2, 7):
         x = np.random.choice(z, size=(int(10**i)), p=p)
@@ -441,9 +481,8 @@ def sample_tests(p, z):
 if __name__ == '__main__':
 
     # TODO: investigate why exp/cvar from starting state don't add up with samples
-    # TODO: visualize runs to check differences between true and naive
     # TODO: try naive PI
-    # TODO: unify
+    # TODO: benchmark 1e6 on risky
 
     # =============== PI setup
     alpha = 0.1
@@ -451,15 +490,17 @@ if __name__ == '__main__':
 
     greedy_policy = GreedyPolicy(Q)
     alpha_policy = AlphaBasedPolicy(Q, alpha=alpha)
+    var_policy = VarBasedPolicy(Q, alpha=alpha)
     naive_cvar_policy = NaiveCvarPolicy(Q, alpha=alpha)
 
     # exhaustive_stats(GreedyPolicy, AlphaBasedPolicy, NaiveCvarPolicy)
 
     # =============== PI stats
     nb_epochs = 100000
-    # policy_stats(greedy_policy, alpha, nb_epochs=nb_epochs)
-    # policy_stats(alpha_policy, alpha, nb_epochs=nb_epochs)
-    # policy_stats(naive_cvar_policy, alpha, nb_epochs=nb_epochs)
+    policy_stats(greedy_policy, alpha, nb_epochs=nb_epochs)
+    policy_stats(alpha_policy, alpha, nb_epochs=nb_epochs)
+    policy_stats(var_policy, alpha, nb_epochs=nb_epochs)
+    policy_stats(naive_cvar_policy, alpha, nb_epochs=nb_epochs)
 
     # =============== plot fixed
     Q_exp = expected_value(Q)
@@ -467,18 +508,19 @@ if __name__ == '__main__':
     Q_cvar = cvar(Q, alpha)
     V_cvar = q_to_v_argmax(Q_cvar)
     # show_fixed(initial_state, q_to_v_argmax(Q_exp), np.argmax(Q_exp, axis=0))
-    show_fixed(initial_state, q_to_v_argmax(Q_cvar), np.argmax(Q_cvar, axis=0))
+    # show_fixed(initial_state, q_to_v_argmax(Q_cvar), np.argmax(Q_cvar, axis=0))
 
     # =============== plot dynamic
-    # plot_machine = PlotMachine(V_cvar)
-    # policy = alpha_policy
-    # for i in range(100):
-    #     S, A, R = epoch(initial_state, policy, plot_machine=plot_machine)
-    #     print('{}: {}'.format(i, np.sum(R)))
-    #     policy.reset()
+    plot_machine = PlotMachine(V_cvar)
+    policy = var_policy
+    for i in range(100):
+        S, A, R = epoch(initial_state, policy, plot_machine=plot_machine)
+        print('{}: {}'.format(i, np.sum(R)))
+        policy.reset()
 
     # ============== other
-    # interesting = Q[2, -1, 0]
+    # Q_cvar = eval_fixed_policy(np.argmax(Q_cvar, axis=0))
+    # interesting = Q_cvar[2, -1, 0]
     # print(interesting.cvar(alpha))
     # interesting.plot()
 
