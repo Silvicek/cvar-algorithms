@@ -1,8 +1,9 @@
 from cliffwalker import *
 import matplotlib.pyplot as plt
 import numpy as np
-from visual import show_fixed
+from visual import show_fixed, PlotMachine
 from util import q_to_v_argmax
+import time
 
 np.random.seed(1337)
 
@@ -391,7 +392,7 @@ def exhaustive_stats(*args):
     plot_cvars()
 
 
-def epoch(start_state, policy, max_iters=100):
+def epoch(start_state, policy, max_iters=100, plot_machine=None):
     """
     Evaluates a single epoch starting at start_state, using a given policy.
     :param start_state: 
@@ -408,6 +409,12 @@ def epoch(start_state, policy, max_iters=100):
     t = Transition(s, 0, 0)
     while s not in goal_states and i < max_iters:
         a = policy.next_action(t)
+
+        if plot_machine is not None:
+            plot_machine.step(s, a)
+            time.sleep(0.5)
+
+
         A.append(a)
         trans = transitions(s)[a]
         state_probs = [tran.prob for tran in trans]
@@ -455,7 +462,14 @@ if __name__ == '__main__':
     # policy_stats(naive_cvar_policy, alpha, nb_epochs=nb_epochs)
 
     Q_exp = expected_value(Q)
-    show_fixed(initial_state, q_to_v_argmax(Q_exp), np.argmax(Q_exp, axis=0))
+    V_exp = q_to_v_argmax(Q_exp)
+    # show_fixed(initial_state, q_to_v_argmax(Q_exp), np.argmax(Q_exp, axis=0))
+
+    plot_machine = PlotMachine(V_exp)
+    policy = alpha_policy
+    for i in range(100):
+        epoch(initial_state, policy, plot_machine=plot_machine)
+        policy.reset()
 
     # Q_cvar = cvar(Q, alpha)
     # show_fixed(initial_state, q_to_v_argmax(Q_cvar), np.argmax(Q_cvar, axis=0))
