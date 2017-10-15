@@ -4,27 +4,31 @@ import numpy as np
 from cliffwalker import *
 
 
-# gives a state-value function v(s) based on action-value function q(s, a) and policy
-# for debugging and visualization
-def q_to_v(Q, policy):  # TODO: move
-    Vnew = np.zeros((H, W))
-    for s in states():
-        activity_probs = policy(s, Q)
-        for a in actions:
-            Vnew[s.y, s.x] += activity_probs[a] * Q[a, s.y, s.x]
-    return Vnew
+def plot_cvars():
+    import pickle
+
+    data = pickle.load(open('stats.pkl', 'rb'))
+
+    cvars = data['cvars']
+    alphas = np.tile(data['alphas'], (len(cvars), 1))
+    ax = plt.gca()
+    ax.plot(alphas.T, cvars.T, '-')
+    ax.set_xscale('log')
+    ax.set_xticks(alphas[0])
+    ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+    ax.invert_xaxis()
+    ax.set_ylim([-50, -10])
+    ax.legend(data['names'])
+    plt.show()
 
 
 # visualizes the final value function with a fixed policy
-def show_results(start_state, policy, Q):
+def show_fixed(start_state, V, P):
     from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     ax = plt.gca()
 
     # darken cliff
-    V = q_to_v(Q, policy)
-    print(V)
-
     cool = np.min(V) * 1.1
     for s in cliff_states:
         V[s.y, s.x] = cool
@@ -54,27 +58,9 @@ def show_results(start_state, policy, Q):
         if s in risky_goal_states:
             continue
 
-        a = np.argmax(policy(s, Q))
+        a = P[s.y, s.x]
         ax.add_patch(plt.Arrow(s.x + offsets[a][0], s.y + offsets[a][1], dirs[a][0], dirs[a][1], color='white'))
 
-    plt.show()
-
-
-def plot_cvars():
-    import pickle
-
-    data = pickle.load(open('stats.pkl', 'rb'))
-
-    cvars = data['cvars']
-    alphas = np.tile(data['alphas'], (len(cvars), 1))
-    ax = plt.gca()
-    ax.plot(alphas.T, cvars.T, '-')
-    ax.set_xscale('log')
-    ax.set_xticks(alphas[0])
-    ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-    ax.invert_xaxis()
-    ax.set_ylim([-50, -10])
-    ax.legend(data['names'])
     plt.show()
 
 

@@ -1,6 +1,10 @@
+""" Standard policy iteration methods stored here. 
+    Is not fully compatible with distributional setting.
+"""
 from cliffwalker import *
-import matplotlib.pyplot as plt
-from visual import show_results
+import numpy as np
+from visual import show_fixed
+from util import q_to_v_argmax
 
 
 # random policy: each action has the same probability
@@ -47,11 +51,11 @@ def value_iteration():
 
 
 def policy_iteration():
-    Q = np.zeros((4, H, W))
+    Q = np.zeros((len(actions), H, W))
     i = 0
     while True:
         Q_ = eval_fixed_policy(np.argmax(Q, axis=0))
-
+        print(i)
         if np.all(np.argmax(Q, axis=0) == np.argmax(Q_, axis=0)) and i != 0:
             print("policy fully learned after %d iterations" % (i,))
             break
@@ -87,7 +91,7 @@ def converged(Q, Q_):
 
 
 def eval_fixed_policy(P):
-    Q = np.zeros((4, H, W))
+    Q = np.zeros((len(actions), H, W))
     i = 0
     while True:
         Q_ = value_update(Q, P)
@@ -123,6 +127,10 @@ def epoch(start_state, policy, Q, max_iters=100):
 
 
 if __name__ == '__main__':
-    Q = value_iteration()
+    # NOTE: PI doesn't converge with gamma=1
+    # gamma = 0.99
     # Q = policy_iteration()
-    show_results(initial_state, greedy_policy, Q)
+
+    Q = value_iteration()
+
+    show_fixed(initial_state, q_to_v_argmax(Q), np.argmax(Q, axis=0))

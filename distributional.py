@@ -1,18 +1,19 @@
 from cliffwalker import *
 import matplotlib.pyplot as plt
 import numpy as np
-from visual import show_results
-import exp_model
+from visual import show_fixed
+from util import q_to_v_argmax
 
 np.random.seed(1337)
 
 
-MIN_VALUE = FALL_REWARD-100
-MAX_VALUE = 100
+MIN_VALUE = FALL_REWARD-50
+MAX_VALUE = 0
 
 
 def clip(ix):
-    return max(0, min(MAX_VALUE - MIN_VALUE, ix))
+    new_ix = max(0, min(MAX_VALUE - MIN_VALUE, ix))
+    return new_ix
 
 
 class RandomVariable:
@@ -69,19 +70,7 @@ class RandomVariable:
             p += self.p[i]
             i += 1
 
-        if p == alpha:
-            # TODO: check
-            return i-1
-        else:
-            return i-1
-
-    def alpha_from_var(self, var):
-        # TODO: deal with discrete distributions
-        i, = np.where(self.z == var)
-        # print(var, i, self.z)
-        alpha = np.sum(self.p[:i[0]+1])
-
-        return alpha
+        return i-1
 
     def __add__(self, r):
         # uses the fact that rewards are all negative ints
@@ -101,6 +90,7 @@ class RandomVariable:
         return RandomVariable(p=p)
 
     def __mul__(self, gamma):
+        assert gamma == 1  # other values not supported
         return RandomVariable(z=gamma*self.z, p=self.p)
 
     def __str__(self):
@@ -156,7 +146,6 @@ class GreedyPolicy(Policy):
     def next_action(self, t):
         s = t.state
         return np.argmax(expected_value(self.Q[:, s.y, s.x]))
-
 
 
 class NaiveCvarPolicy(Policy):
@@ -257,7 +246,12 @@ class AlphaBasedPolicy(Policy):
 def expected_value(rv):
     return rv.expected_value()
 
+
+def cvar(rv, alpha):
+    return rv.cvar(alpha)
+
 expected_value = np.vectorize(expected_value)
+cvar = np.vectorize(cvar)
 
 
 def policy_iteration():
@@ -276,6 +270,22 @@ def policy_iteration():
     return Q
 
 
+def naive_cvar_policy_iteration(alpha):
+    Q = init_q()
+    i = 0
+    while True:
+        cvars = cvar(Q, alpha)
+        Q_ = eval_fixed_policy(np.argmax(cvars, axis=0))
+
+        if converged(Q, Q_) and i != 0:
+            print("naive cvar policy fully learned after %d iterations" % (i,))
+            break
+        i += 1
+        Q = Q_
+
+    return Q
+
+
 def init_q():
     Q = np.empty((4, H, W), dtype=object)
     for ix in np.ndindex(Q.shape):
@@ -287,7 +297,6 @@ def init_q():
 def eval_fixed_policy(P):
     Q = init_q()
     i = 0
-    print('eval')
     while True:
         Q_ = value_update(Q, P)
         if converged(Q, Q_) and i != 0:
@@ -295,8 +304,6 @@ def eval_fixed_policy(P):
         Q = Q_
         i += 1
 
-    # print(expected_value(Q))
-    # show_results(initial_state, greedy_policy, expected_value(Q))
     return Q
 
 
@@ -307,7 +314,6 @@ def value_update(Q, P):
     :param P: (M, N): indices of actions to be selected
     :return: (A, M, N): new Q-values
     """
-    gamma = 1 # TODO: gamma != 1
 
     Q_ = init_q()
     for s in states():
@@ -335,17 +341,6 @@ def converged(Q, Q_):
     return np.linalg.norm(p-p_)/Q.size < 0.001
 
 
-# gives a state-value function v(s) based on action-value function q(s, a) and policy
-# for debugging and visualization
-def q_to_v(Q, policy):
-    Vnew = np.zeros((H, W))
-    for s in states():
-        activity_probs = policy(s, Q)
-        for a in actions:
-            Vnew[s.y, s.x] += activity_probs[a] * Q[a, s.y, s.x]
-    return Vnew
-
-
 def policy_stats(policy, alpha, nb_epochs=10000, verbose=True):
 
     rewards = np.zeros(nb_epochs)
@@ -371,6 +366,7 @@ def policy_stats(policy, alpha, nb_epochs=10000, verbose=True):
 
 
 def exhaustive_stats(*args):
+    # TODO: parallel (or in stats)
     Q = policy_iteration()
 
     alphas = np.array([1.0, 0.5, 0.3, 0.1, 0.05, 0.025, 0.01, 0.005, 0.001])
@@ -383,7 +379,7 @@ def exhaustive_stats(*args):
         for j, alpha in enumerate(alphas):
             pol = policy(Q, alpha)
 
-            cvars[i, j] = policy_stats(pol, alpha=alpha, verbose=False)
+            cvars[i, j] = policy_stats(pol, alpha=alpha, verbose=False, nb_epochs=int(1e6))
 
             print('{}_{} done...'.format(pol.__name__, alpha))
 
@@ -395,10 +391,14 @@ def exhaustive_stats(*args):
     plot_cvars()
 
 
-# evaluates a single epoch starting at start_state, using a policy which can use
-# an action-value function Q as a parameter
-# returns a triple: states visited, actions taken, rewards taken
 def epoch(start_state, policy, max_iters=100):
+    """
+    Evaluates a single epoch starting at start_state, using a given policy.
+    :param start_state: 
+    :param policy: Policy instance
+    :param max_iters: end the epoch after this #steps
+    :return: States, Actions, Rewards
+    """
     s = start_state
     S = [s]
     A = []
@@ -436,19 +436,27 @@ if __name__ == '__main__':
 
     # TODO: investigate why exp/cvar from starting state don't add up with samples
     # TODO: visualize runs to check differences between true and naive
+    # TODO: try naive PI
+    # TODO: unify
 
     # exhaustive_stats(GreedyPolicy, AlphaBasedPolicy, NaiveCvarPolicy)
 
+    alpha = 0.1
+    nb_epochs = 10000
+
     Q = policy_iteration()
 
-    alpha = 0.25
-    nb_epochs = 10000
-    greedy_policy = GreedyPolicy(Q, alpha)
+    greedy_policy = GreedyPolicy(Q)
     alpha_policy = AlphaBasedPolicy(Q, alpha=alpha)
     naive_cvar_policy = NaiveCvarPolicy(Q, alpha=alpha)
 
-    policy_stats(greedy_policy, alpha, nb_epochs=nb_epochs)
-    policy_stats(alpha_policy, alpha, nb_epochs=nb_epochs)
-    policy_stats(naive_cvar_policy, alpha, nb_epochs=nb_epochs)
+    # policy_stats(greedy_policy, alpha, nb_epochs=nb_epochs)
+    # policy_stats(alpha_policy, alpha, nb_epochs=nb_epochs)
+    # policy_stats(naive_cvar_policy, alpha, nb_epochs=nb_epochs)
 
-    # show_results(initial_state, exp_model.greedy_policy, expected_value(Q))
+    Q_exp = expected_value(Q)
+    show_fixed(initial_state, q_to_v_argmax(Q_exp), np.argmax(Q_exp, axis=0))
+
+    # Q_cvar = cvar(Q, alpha)
+    # show_fixed(initial_state, q_to_v_argmax(Q_cvar), np.argmax(Q_cvar, axis=0))
+
