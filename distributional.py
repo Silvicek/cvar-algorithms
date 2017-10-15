@@ -9,7 +9,7 @@ np.random.seed(1337)
 
 
 MIN_VALUE = FALL_REWARD-50
-MAX_VALUE = 0
+MAX_VALUE = 100
 
 
 def clip(ix):
@@ -27,6 +27,7 @@ class RandomVariable:
             self.p[zero_ix] = 1.0
         else:
             self.p = np.copy(p)
+        assert np.abs(np.sum(self.p) - 1.0) < 0.001
 
     def expected_value(self):
         return np.dot(self.z, self.p)
@@ -74,8 +75,9 @@ class RandomVariable:
         return i-1
 
     def __add__(self, r):
-        # uses the fact that rewards are all negative ints
+        # uses the fact that rewards are all integers
         # correct version: z += r
+        assert abs(r) < MAX_VALUE - MIN_VALUE  # increase the range
         if r == 0:
             p = self.p
         elif r > 0:
@@ -86,8 +88,7 @@ class RandomVariable:
             p = np.roll(self.p, r)
             p[0] += np.sum(p[r:])
             p[r:] = 0
-            if abs(np.sum(p) - 1.0) > 0.001:
-                print('PROBLEMS:{:.10f}'.format(np.sum(p)))
+
         return RandomVariable(p=p)
 
     def __mul__(self, gamma):
@@ -224,7 +225,6 @@ class AlphaBasedPolicy(Policy):
         p_active = (self.alpha - p_pre) / p_var
 
         self.alpha = p__pre + p_active * p__var * p_portion
-        # print(self.alpha)
 
     def p_portion_sum(self, s, a, var_ix):
 
@@ -361,7 +361,6 @@ def policy_stats(policy, alpha, nb_epochs=10000, verbose=True):
         print('expected value=', np.mean(rewards))
         print('cvar_{}={}'.format(alpha, cvar))
         # print('var_{}={}'.format(alpha, var))
-        print('----------------')
 
     return cvar
 
@@ -446,31 +445,42 @@ if __name__ == '__main__':
     # TODO: try naive PI
     # TODO: unify
 
-    # exhaustive_stats(GreedyPolicy, AlphaBasedPolicy, NaiveCvarPolicy)
-
+    # =============== PI setup
     alpha = 0.1
-    nb_epochs = 10000
-
     Q = policy_iteration()
 
     greedy_policy = GreedyPolicy(Q)
     alpha_policy = AlphaBasedPolicy(Q, alpha=alpha)
     naive_cvar_policy = NaiveCvarPolicy(Q, alpha=alpha)
 
+    # exhaustive_stats(GreedyPolicy, AlphaBasedPolicy, NaiveCvarPolicy)
+
+    # =============== PI stats
+    nb_epochs = 100000
     # policy_stats(greedy_policy, alpha, nb_epochs=nb_epochs)
     # policy_stats(alpha_policy, alpha, nb_epochs=nb_epochs)
     # policy_stats(naive_cvar_policy, alpha, nb_epochs=nb_epochs)
 
+    # =============== plot fixed
     Q_exp = expected_value(Q)
     V_exp = q_to_v_argmax(Q_exp)
+    Q_cvar = cvar(Q, alpha)
+    V_cvar = q_to_v_argmax(Q_cvar)
     # show_fixed(initial_state, q_to_v_argmax(Q_exp), np.argmax(Q_exp, axis=0))
+    show_fixed(initial_state, q_to_v_argmax(Q_cvar), np.argmax(Q_cvar, axis=0))
 
-    plot_machine = PlotMachine(V_exp)
-    policy = alpha_policy
-    for i in range(100):
-        epoch(initial_state, policy, plot_machine=plot_machine)
-        policy.reset()
+    # =============== plot dynamic
+    # plot_machine = PlotMachine(V_cvar)
+    # policy = alpha_policy
+    # for i in range(100):
+    #     S, A, R = epoch(initial_state, policy, plot_machine=plot_machine)
+    #     print('{}: {}'.format(i, np.sum(R)))
+    #     policy.reset()
 
-    # Q_cvar = cvar(Q, alpha)
-    # show_fixed(initial_state, q_to_v_argmax(Q_cvar), np.argmax(Q_cvar, axis=0))
+    # ============== other
+    # interesting = Q[2, -1, 0]
+    # print(interesting.cvar(alpha))
+    # interesting.plot()
+
+
 

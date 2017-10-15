@@ -33,7 +33,6 @@ initial_state = State(H-1, 0)
 goal_states = {State(H-1, W-1)}
 
 # special state to promote risk-averse behavior
-# risky_goal_states = {State(0, W-1)}
 risky_goal_states = {}
 
 # set of cliff states
@@ -41,6 +40,13 @@ cliff_states = {State(H-1, i) for i in range(1, W - 1)}
 
 # undiscounted rewards
 gamma = 1.
+
+
+# risky setting alpha = 0.25
+# RANDOM_ACTION_P = 0.01  # risky
+# goal_states = {State(1, W-1)}  # risky
+# risky_goal_states = {State(H-1, W-1)}  # risky
+
 
 
 # iterator over all possible states
