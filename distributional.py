@@ -75,6 +75,11 @@ class RandomVariable:
 
         return i-1
 
+    def exp_(self, s, alpha=None):
+        if alpha is None:
+            return np.dot(self.p, np.clip(self.z-s, None, 0))
+        return 1./alpha*np.dot(self.p, np.clip(self.z-s, None, 0)) + s
+
     def __add__(self, r):
         # uses the fact that rewards are all integers
         # correct version: z += r
@@ -100,13 +105,21 @@ class RandomVariable:
         return 'p:{}\nz:{}'.format(self.p, self.z)
 
     def plot(self):
-        ax = plt.gca()
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
 
         ax.bar(self.z, self.p, width=0.9, )
 
         ax.set_ylim([0., 1.1 * np.max(self.p)])
-        plt.grid(True)
+        ax.grid()
 
+        fig.show()
+
+    def plot_cdf(self):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.step(self.z, np.cumsum(self.p), where='post')
+        ax.grid()
         plt.show()
 
 
@@ -263,20 +276,7 @@ class VarBasedPolicy(Policy):
         else:
             self.var = np.clip((self.var - t.reward) / gamma, MIN_VALUE, MAX_VALUE)
 
-
-
-        # E[(X-s)^-]
-        def exp_(dist, s):
-            var_ix = int(MAX_VALUE - MIN_VALUE + s + 1)
-            p = np.sum(dist.p[:var_ix])
-            e = np.dot(dist.p[:var_ix], dist.z[:var_ix])
-            return np.array([p*e, p, e])
-
-        # print(self.var)
-        # exps = np.array([exp_(d, self.var) for d in action_distributions])
-        # print(exps)
-
-        a = np.argmax([exp_(d, self.var)[0] for d in action_distributions])
+        a = np.argmax([d.exp_(self.var) for d in action_distributions])
 
         return a
 
@@ -383,6 +383,7 @@ def converged(Q, Q_):
 
 
 def several_epochs(arg):
+    np.random.seed()
     policy, nb_epochs = arg
     rewards = np.zeros(nb_epochs)
 
