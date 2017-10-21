@@ -50,7 +50,7 @@ class PlotMachine:
 def plot_cvars():
     import pickle
 
-    data = pickle.load(open('stats.pkl', 'rb'))
+    data = pickle.load(open('files/stats.pkl', 'rb'))
 
     cvars = data['cvars']
     alphas = np.tile(data['alphas'], (len(cvars), 1))
@@ -60,7 +60,7 @@ def plot_cvars():
     ax.set_xticks(alphas[0])
     ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
     ax.invert_xaxis()
-    ax.set_ylim([-50, -10])
+    # ax.set_ylim([-50, -10])
     ax.legend(data['names'])
     plt.show()
 

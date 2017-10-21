@@ -2,4 +2,9 @@
 
 ### Environment: Cliffwalker
 
-![](cliffwalker.png)
+![](files/cliffwalker.png)
+
+### Results:
+![](files/ideal.png)
+
+![](files/risky.png)

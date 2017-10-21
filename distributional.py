@@ -160,7 +160,7 @@ def exhaustive_stats(*args):
             print('{}_{} done...'.format(pol.__name__, alpha))
 
     import pickle
-    pickle.dump({'cvars': cvars, 'alphas': alphas, 'names': names}, open('stats.pkl', 'wb'))
+    pickle.dump({'cvars': cvars, 'alphas': alphas, 'names': names}, open('files/stats.pkl', 'wb'))
     print(cvars)
 
     from visual import plot_cvars
