@@ -145,7 +145,7 @@ def policy_stats(policy, alpha, nb_epochs, verbose=True):
 def exhaustive_stats(*args):
     Q = policy_iteration()
 
-    alphas = np.array([1.0, 0.5, 0.3, 0.1, 0.05, 0.025, 0.01, 0.005, 0.001])
+    alphas = np.array([1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005, 0.001])
 
     cvars = np.zeros((len(args), len(alphas)))
     names = []
@@ -227,7 +227,7 @@ if __name__ == '__main__':
     var_policy = VarBasedPolicy(Q, alpha=alpha)
     naive_cvar_policy = NaiveCvarPolicy(Q, alpha=alpha)
 
-    # exhaustive_stats(GreedyPolicy, AlphaBasedPolicy, NaiveCvarPolicy)
+    # exhaustive_stats(GreedyPolicy, AlphaBasedPolicy, NaiveCvarPolicy, VarBasedPolicy)
 
     # =============== PI stats
     nb_epochs = 100000
