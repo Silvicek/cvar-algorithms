@@ -9,12 +9,12 @@ from util import q_to_v_argmax
 
 # random policy: each action has the same probability
 def random_policy(s, Q):
-    return [1.0 / len(actions) for a in actions]
+    return [1.0 / len(GridWorld.ACTIONS) for a in GridWorld.ACTIONS]
 
 
 # greedy policy gives the best action (based on action value function Q) a probability of 1, others are given 0
 def greedy_policy(s, Q):
-    probs = np.zeros_like(actions, dtype=float)
+    probs = np.zeros_like(GridWorld.ACTIONS, dtype=float)
     probs[np.argmax(Q[:, s.y, s.x])] = 1.0
     return probs
 
@@ -32,16 +32,16 @@ def epsilon_greedy_policy(eps=0.0):
 
 def policy_sample(policy, *args):
     p = policy(*args)
-    return np.random.choice(actions, p=p)
+    return np.random.choice(GridWorld.ACTIONS, p=p)
 
 # ===================== algorithms
 
 
-def value_iteration():
-    Q = np.zeros((len(actions), H, W))
+def value_iteration(world):
+    Q = np.zeros((len(world.ACTIONS), world.height, world.width))
     i = 0
     while True:
-        Q_ = value_update(Q, np.argmax(Q, axis=0))
+        Q_ = value_update(world, Q, np.argmax(Q, axis=0))
         if converged(Q, Q_) and i != 0:
             print("value fully learned after %d iterations" % (i,))
             break
@@ -50,8 +50,8 @@ def value_iteration():
     return Q
 
 
-def policy_iteration():
-    Q = np.zeros((len(actions), H, W))
+def policy_iteration(world):
+    Q = np.zeros((len(world.ACTIONS), world.height, world.width))
     i = 0
     while True:
         Q_ = eval_fixed_policy(np.argmax(Q, axis=0))
@@ -67,7 +67,7 @@ def policy_iteration():
 
 # ==================== other
 
-def value_update(Q, P):
+def value_update(world, Q, P):
     """
     One value update step.
     :param Q: (A, M, N): current Q-values
@@ -75,9 +75,8 @@ def value_update(Q, P):
     :return: (A, M, N): new Q-values
     """
     Q_ = np.array(Q)
-    for s in states():
-        for a, action_transitions in zip(actions, transitions(s)):
-            # TODO: more effective
+    for s in world.states():
+        for a, action_transitions in zip(world.ACTIONS, world.transitions(s)):
             t_p = np.array([t.prob for t in action_transitions])
 
             t_q = [t.reward + gamma * Q[P[t.state.y, t.state.x], t.state.y, t.state.x] for t in action_transitions]
@@ -90,11 +89,11 @@ def converged(Q, Q_):
     return np.linalg.norm(Q-Q_)/Q.size < 0.001
 
 
-def eval_fixed_policy(P):
-    Q = np.zeros((len(actions), H, W))
+def eval_fixed_policy(world, P):
+    Q = np.zeros((len(world.ACTIONS), world.height, world.width))
     i = 0
     while True:
-        Q_ = value_update(Q, P)
+        Q_ = value_update(world, Q, P)
         if converged(Q, Q_) and i != 0:
             break
         Q = Q_
@@ -105,16 +104,16 @@ def eval_fixed_policy(P):
 # evaluates a single epoch starting at start_state, using a policy which can use
 # an action-value function Q as a parameter
 # returns a triple: states visited, actions taken, rewards taken
-def epoch(start_state, policy, Q, max_iters=100):
-    s = start_state
+def epoch(world, policy, Q, max_iters=100):
+    s = world.initial_state
     S = [s]
     A = []
     R = []
     i = 0
-    while s not in goal_states and i < max_iters:
+    while s not in world.goal_states and i < max_iters:
         a = policy_sample(policy, s, Q)
         A.append(a)
-        trans = transitions(s)[a]
+        trans = world.transitions(s)[a]
         state_probs = [tran.prob for tran in trans]
         t = trans[np.random.choice(len(trans), p=state_probs)]
 
@@ -131,6 +130,8 @@ if __name__ == '__main__':
     # gamma = 0.99
     # Q = policy_iteration()
 
-    Q = value_iteration()
+    world = GridWorld(4, 6)
 
-    show_fixed(initial_state, q_to_v_argmax(Q), np.argmax(Q, axis=0))
+    Q = value_iteration(world)
+
+    show_fixed(world, q_to_v_argmax(world, Q), np.argmax(Q, axis=0))

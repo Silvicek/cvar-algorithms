@@ -52,6 +52,7 @@ class AlphaBasedPolicy(Policy):
     __name__ = 'alpha-based CVaR'
 
     def __init__(self, Q, alpha):
+        raise DeprecationWarning('counterexample found')
         self.Q = Q
         self.init_alpha = alpha
         self.alpha = alpha
@@ -103,23 +104,24 @@ class AlphaBasedPolicy(Policy):
         p__var = s__dist.p[var__ix]
 
         # how much does t add to the full var
-        p_portion = (t.prob * p__var) / self.p_portion_sum(s, a, var_ix)
+        # p_portion = (t.prob * p__var) / self.p_portion_sum(s, a, var_ix)
+        p_portion = 1
 
         # we care about this portion of var
         p_active = (self.alpha - p_pre) / p_var
 
         self.alpha = p__pre + p_active * p__var * p_portion
 
-    def p_portion_sum(self, s, a, var_ix):
-
-        p_portion = 0.
-
-        for t_ in transitions(s)[a]:
-            action_distributions = self.Q[:, t_.state.y, t_.state.x]
-            a_ = np.argmax(expected_value(action_distributions))
-            p_portion += t_.prob*action_distributions[a_].p[clip(var_ix - t_.reward)]
-
-        return p_portion
+    # def p_portion_sum(self, s, a, var_ix):
+    #
+    #     p_portion = 0.
+    #
+    #     for t_ in transitions(s)[a]:
+    #         action_distributions = self.Q[:, t_.state.y, t_.state.x]
+    #         a_ = np.argmax(expected_value(action_distributions))
+    #         p_portion += t_.prob*action_distributions[a_].p[clip(var_ix - t_.reward)]
+    #
+    #     return p_portion
 
     def reset(self):
         self.alpha = self.init_alpha

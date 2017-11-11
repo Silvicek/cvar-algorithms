@@ -1,3 +1,4 @@
+from cliffwalker import *
 from util import *
 from policies import AlphaBasedPolicy, VarBasedPolicy, NaiveCvarPolicy, FixedPolicy, GreedyPolicy
 from random_variable import RandomVariable, MIN_VALUE, MAX_VALUE
@@ -18,12 +19,12 @@ def cvar_from_samples(samples, alpha):
     return var, cvar
 
 
-def policy_iteration():
-    Q = init_q()
+def policy_iteration(world):
+    Q = init_q(world)
     i = 0
     while True:
         expvals = expected_value(Q)
-        Q_ = eval_fixed_policy(np.argmax(expvals, axis=0))
+        Q_ = eval_fixed_policy(world, np.argmax(expvals, axis=0))
 
         if converged(Q, Q_) and i != 0:
             print("policy fully learned after %d iterations" % (i,))
@@ -34,8 +35,8 @@ def policy_iteration():
     return Q
 
 
-def naive_cvar_policy_iteration(alpha):
-    Q = init_q()
+def naive_cvar_policy_iteration(world, alpha):
+    Q = init_q(world)
     i = 0
     while True:
         cvars = cvar(Q, alpha)
@@ -50,19 +51,19 @@ def naive_cvar_policy_iteration(alpha):
     return Q
 
 
-def init_q():
-    Q = np.empty((4, H, W), dtype=object)
+def init_q(world):
+    Q = np.empty((4, world.height, world.width), dtype=object)
     for ix in np.ndindex(Q.shape):
 
         Q[ix] = RandomVariable()
     return Q
 
 
-def eval_fixed_policy(P):
-    Q = init_q()
+def eval_fixed_policy(world, P):
+    Q = init_q(world)
     i = 0
     while True:
-        Q_ = value_update(Q, P)
+        Q_ = value_update(world, Q, P)
         if converged(Q, Q_) and i != 0:
             break
         Q = Q_
@@ -71,7 +72,7 @@ def eval_fixed_policy(P):
     return Q
 
 
-def value_update(Q, P):
+def value_update(world, Q, P):
     """
     One value update step.
     :param Q: (A, M, N): current Q-values
@@ -79,9 +80,9 @@ def value_update(Q, P):
     :return: (A, M, N): new Q-values
     """
 
-    Q_ = init_q()
-    for s in states():
-        for a, action_transitions in zip(actions, transitions(s)):
+    Q_ = init_q(world)
+    for s in world.states():
+        for a, action_transitions in zip(world.ACTIONS, world.transitions(s)):
 
             # transition probabilities
             t_p = np.array([t.prob for t in action_transitions])
@@ -111,7 +112,7 @@ def several_epochs(arg):
     rewards = np.zeros(nb_epochs)
 
     for i in range(nb_epochs):
-        S, A, R = epoch(initial_state, policy)
+        S, A, R = epoch(world.initial_state, policy)
         policy.reset()
         rewards[i] = np.sum(R)
 
@@ -167,7 +168,7 @@ def exhaustive_stats(*args):
     plot_cvars()
 
 
-def epoch(start_state, policy, max_iters=100, plot_machine=None):
+def epoch(world, policy, max_iters=100, plot_machine=None):
     """
     Evaluates a single epoch starting at start_state, using a given policy.
     :param start_state: 
@@ -175,14 +176,14 @@ def epoch(start_state, policy, max_iters=100, plot_machine=None):
     :param max_iters: end the epoch after this #steps
     :return: States, Actions, Rewards
     """
-    s = start_state
+    s = world.initial_state
     S = [s]
     A = []
     R = []
     i = 0
     r = 0
     t = Transition(s, 0, 0)
-    while s not in goal_states and i < max_iters:
+    while s not in world.goal_states and i < max_iters:
         a = policy.next_action(t)
 
         if plot_machine is not None:
@@ -191,7 +192,7 @@ def epoch(start_state, policy, max_iters=100, plot_machine=None):
 
 
         A.append(a)
-        trans = transitions(s)[a]
+        trans = world.transitions(s)[a]
         state_probs = [tran.prob for tran in trans]
         t = trans[np.random.choice(len(trans), p=state_probs)]
 
@@ -218,14 +219,15 @@ if __name__ == '__main__':
 
     # TODO: try naive PI
 
+    world = GridWorld(4, 6)
+
     # =============== PI setup
     alpha = 0.1
-    Q = policy_iteration()
+    Q = policy_iteration(world)
 
     greedy_policy = GreedyPolicy(Q)
-    alpha_policy = AlphaBasedPolicy(Q, alpha=alpha)
-    var_policy = VarBasedPolicy(Q, alpha=alpha)
     naive_cvar_policy = NaiveCvarPolicy(Q, alpha=alpha)
+    var_policy = VarBasedPolicy(Q, alpha=alpha)
 
     # exhaustive_stats(GreedyPolicy, AlphaBasedPolicy, NaiveCvarPolicy, VarBasedPolicy)
 
@@ -238,17 +240,17 @@ if __name__ == '__main__':
 
     # =============== plot fixed
     Q_exp = expected_value(Q)
-    V_exp = q_to_v_argmax(Q_exp)
+    V_exp = q_to_v_argmax(world, Q_exp)
     Q_cvar = cvar(Q, alpha)
-    V_cvar = q_to_v_argmax(Q_cvar)
+    V_cvar = q_to_v_argmax(world, Q_cvar)
     # show_fixed(initial_state, q_to_v_argmax(Q_exp), np.argmax(Q_exp, axis=0))
     # show_fixed(initial_state, q_to_v_argmax(Q_cvar), np.argmax(Q_cvar, axis=0))
 
     # =============== plot dynamic
-    plot_machine = PlotMachine(V_cvar)
+    plot_machine = PlotMachine(world, V_cvar)
     policy = var_policy
     for i in range(100):
-        S, A, R = epoch(initial_state, policy, plot_machine=plot_machine)
+        S, A, R = epoch(world, policy, plot_machine=plot_machine)
         print('{}: {}'.format(i, np.sum(R)))
         policy.reset()
 

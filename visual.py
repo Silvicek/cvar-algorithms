@@ -11,11 +11,11 @@ dirs = {0: (-0.8, 0), 1: (0.8, 0), 2: (0, -0.8), 3: (0, 0.8)}
 
 class PlotMachine:
 
-    def __init__(self, V):
+    def __init__(self, world, V):
         self.V = V
         # darken cliff
         cool = np.min(V) * 1.1
-        for s in cliff_states:
+        for s in world.cliff_states:
             V[s.y, s.x] = cool
 
         plt.ion()
@@ -29,10 +29,10 @@ class PlotMachine:
         cax = divider.append_axes("right", size="5%", pad=0.05)
         plt.colorbar(im, cax=cax)
 
-        self.ax.text(initial_state.x, initial_state.y, 'S', ha='center', va='center', fontsize=20)
-        for s in goal_states:
+        self.ax.text(world.initial_state.x, world.initial_state.y, 'S', ha='center', va='center', fontsize=20)
+        for s in world.goal_states:
             self.ax.text(s[1], s[0], 'G', ha='center', va='center', fontsize=20)
-        for s in risky_goal_states:
+        for s in world.risky_goal_states:
             self.ax.text(s[1], s[0], 'R', ha='center', va='center', fontsize=20)
 
         self.arrow = self.ax.add_patch(plt.Arrow(0, 0, 1, 1, color='white'))
@@ -69,13 +69,13 @@ def plot_cvars():
 
 
 # visualizes the final value function with a fixed policy
-def show_fixed(start_state, V, P):
+def show_fixed(world, V, P):
 
     ax = plt.gca()
 
     # darken cliff
     cool = np.min(V) * 1.1
-    for s in cliff_states:
+    for s in world.cliff_states:
         V[s.y, s.x] = cool
 
     im = ax.imshow(V, interpolation='nearest', origin='upper')
@@ -86,18 +86,18 @@ def show_fixed(start_state, V, P):
 
     plt.colorbar(im, cax=cax)
 
-    ax.text(start_state[1], start_state[0], 'S', ha='center', va='center', fontsize=20)
-    for s in goal_states:
+    ax.text(world.initial_state[1], world.initial_state[0], 'S', ha='center', va='center', fontsize=20)
+    for s in world.goal_states:
         ax.text(s[1], s[0], 'G', ha='center', va='center', fontsize=20)
-    for s in risky_goal_states:
+    for s in world.risky_goal_states:
         ax.text(s[1], s[0], 'R', ha='center', va='center', fontsize=20)
 
-    for s in states():
-        if s in cliff_states:
+    for s in world.states():
+        if s in world.cliff_states:
             continue
-        if s in goal_states:
+        if s in world.goal_states:
             continue
-        if s in risky_goal_states:
+        if s in world.risky_goal_states:
             continue
 
         a = P[s.y, s.x]
