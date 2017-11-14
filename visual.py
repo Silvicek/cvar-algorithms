@@ -2,7 +2,6 @@ import matplotlib.pyplot as plt
 import matplotlib
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
-from cliffwalker import *
 
 # arrows
 offsets = {0: (0.4, 0), 1: (-0.4, 0), 2: (0, 0.4), 3: (0, -0.4)}
@@ -50,7 +49,7 @@ class PlotMachine:
 def plot_cvars():
     import pickle
 
-    data = pickle.load(open('files/stats_risky_new.pkl', 'rb'))
+    data = pickle.load(open('files/stats.pkl', 'rb'))
 
     cvars = data['cvars']
     alphas = np.tile(data['alphas'], (len(cvars), 1))

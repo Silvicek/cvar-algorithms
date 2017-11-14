@@ -108,24 +108,24 @@ def converged(Q, Q_):
 
 def several_epochs(arg):
     np.random.seed()
-    policy, nb_epochs = arg
+    world, policy, nb_epochs = arg
     rewards = np.zeros(nb_epochs)
 
     for i in range(nb_epochs):
-        S, A, R = epoch(world.initial_state, policy)
+        S, A, R = epoch(world, policy)
         policy.reset()
         rewards[i] = np.sum(R)
 
     return rewards
 
 
-def policy_stats(policy, alpha, nb_epochs, verbose=True):
+def policy_stats(world, policy, alpha, nb_epochs, verbose=True):
     import copy
     import multiprocessing as mp
     threads = 4
 
     with mp.Pool(threads) as p:
-        rewards = p.map(several_epochs, [(copy.deepcopy(policy), int(nb_epochs/threads)) for _ in range(threads)])
+        rewards = p.map(several_epochs, [(world, copy.deepcopy(policy), int(nb_epochs/threads)) for _ in range(threads)])
 
     rewards = np.array(rewards).flatten()
 
@@ -143,8 +143,8 @@ def policy_stats(policy, alpha, nb_epochs, verbose=True):
     return cvar
 
 
-def exhaustive_stats(*args):
-    Q = policy_iteration()
+def exhaustive_stats(world, epochs, *args):
+    Q = policy_iteration(world)
 
     alphas = np.array([1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005, 0.001])
 
@@ -156,7 +156,7 @@ def exhaustive_stats(*args):
         for j, alpha in enumerate(alphas):
             pol = policy(Q, alpha)
 
-            cvars[i, j] = policy_stats(pol, alpha=alpha, nb_epochs=int(1e6), verbose=False)
+            cvars[i, j] = policy_stats(world, pol, alpha=alpha, nb_epochs=int(epochs), verbose=False)
 
             print('{}_{} done...'.format(pol.__name__, alpha))
 
@@ -219,38 +219,43 @@ if __name__ == '__main__':
 
     # TODO: try naive PI
 
-    world = GridWorld(4, 6)
+    world_ideal = GridWorld(4, 6, random_action_p=0.3)
+    world_tweaked = GridWorld(4, 6, random_action_p=0.1)
 
     # =============== PI setup
-    alpha = 0.1
-    Q = policy_iteration(world)
+    alpha = 0.4
+    Q = policy_iteration(world_ideal)
 
     greedy_policy = GreedyPolicy(Q)
     naive_cvar_policy = NaiveCvarPolicy(Q, alpha=alpha)
     var_policy = VarBasedPolicy(Q, alpha=alpha)
 
-    # exhaustive_stats(GreedyPolicy, AlphaBasedPolicy, NaiveCvarPolicy, VarBasedPolicy)
+    # exhaustive_stats(world_ideal, 1e6, GreedyPolicy, NaiveCvarPolicy, VarBasedPolicy)
 
     # =============== PI stats
     nb_epochs = 100000
-    # policy_stats(greedy_policy, alpha, nb_epochs=nb_epochs)
-    # policy_stats(alpha_policy, alpha, nb_epochs=nb_epochs)
-    # policy_stats(var_policy, alpha, nb_epochs=nb_epochs)
-    # policy_stats(naive_cvar_policy, alpha, nb_epochs=nb_epochs)
+    # policy_stats(world_ideal, greedy_policy, alpha, nb_epochs=nb_epochs)
+    # policy_stats(world_ideal, var_policy, alpha, nb_epochs=nb_epochs)
+
+    policy_stats(world_tweaked, greedy_policy, alpha, nb_epochs=nb_epochs)
+    policy_stats(world_tweaked, var_policy, alpha, nb_epochs=nb_epochs)
+
+    # policy_stats(world_ideal, naive_cvar_policy, alpha, nb_epochs=nb_epochs)
 
     # =============== plot fixed
     Q_exp = expected_value(Q)
-    V_exp = q_to_v_argmax(world, Q_exp)
+    V_exp = q_to_v_argmax(world_ideal, Q_exp)
     Q_cvar = cvar(Q, alpha)
-    V_cvar = q_to_v_argmax(world, Q_cvar)
+    V_cvar = q_to_v_argmax(world_ideal, Q_cvar)
     # show_fixed(initial_state, q_to_v_argmax(Q_exp), np.argmax(Q_exp, axis=0))
     # show_fixed(initial_state, q_to_v_argmax(Q_cvar), np.argmax(Q_cvar, axis=0))
 
     # =============== plot dynamic
-    plot_machine = PlotMachine(world, V_cvar)
+    plot_machine = PlotMachine(world_ideal, V_exp)
     policy = var_policy
+    policy = greedy_policy
     for i in range(100):
-        S, A, R = epoch(world, policy, plot_machine=plot_machine)
+        S, A, R = epoch(world_ideal, policy, plot_machine=plot_machine)
         print('{}: {}'.format(i, np.sum(R)))
         policy.reset()
 

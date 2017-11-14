@@ -2,6 +2,7 @@
     Is not fully compatible with distributional setting.
 """
 from cliffwalker import *
+from constants import *
 import numpy as np
 from visual import show_fixed
 from util import q_to_v_argmax
