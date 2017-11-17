@@ -219,11 +219,12 @@ if __name__ == '__main__':
 
     # TODO: try naive PI
 
-    world_ideal = GridWorld(4, 6, random_action_p=0.3)
-    world_tweaked = GridWorld(4, 6, random_action_p=0.1)
+    world_ideal = GridWorld(4, 6, random_action_p=0.1)
+    world_tweaked = GridWorld(4, 6, random_action_p=0.3)
 
     # =============== PI setup
-    alpha = 0.4
+    # 1/(3^4.5*(7/9)^10.5) = 0.1
+    alpha = 0.1
     Q = policy_iteration(world_ideal)
 
     greedy_policy = GreedyPolicy(Q)

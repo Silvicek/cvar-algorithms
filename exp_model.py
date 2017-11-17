@@ -136,3 +136,14 @@ if __name__ == '__main__':
     Q = value_iteration(world)
 
     show_fixed(world, q_to_v_argmax(world, Q), np.argmax(Q, axis=0))
+
+    # ============== length testing
+    lengths = []
+    for i in range(1000):
+        s, a, r = epoch(GridWorld(4, 6, random_action_p=0.3), greedy_policy, Q)
+        # print(r)
+        # quit()
+        lengths.append(len(r))
+    print('expected length=', np.mean(np.array(lengths)))
+
+
