@@ -206,6 +206,17 @@ def epoch(world, policy, max_iters=100, plot_machine=None):
     return S, A, R
 
 
+def generate_multinomial(world):
+    Q = policy_iteration(world)
+
+    import pickle
+
+    pickle.dump(Q, open('q_random_variables.pkl', 'wb'))
+    print(Q)
+
+    quit()
+
+
 def sample_runs(p, z):
 
     for i in range(2, 7):
@@ -221,6 +232,8 @@ if __name__ == '__main__':
 
     world_ideal = GridWorld(4, 6, random_action_p=0.1)
     world_tweaked = GridWorld(4, 6, random_action_p=0.3)
+
+    generate_multinomial(world_ideal)
 
     # =============== PI setup
     # 1/(3^4.5*(7/9)^10.5) = 0.1

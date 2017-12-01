@@ -29,7 +29,10 @@ class GridWorld:
 
         self.risky_goal_states = {}
 
-        self.cliff_states = {State(self.height - 1, i) for i in range(1, self.width - 1)}
+        if height == 1:
+            self.cliff_states = {}
+        else:
+            self.cliff_states = {State(self.height - 1, i) for i in range(1, self.width - 1)}
 
     def states(self):
         """ iterator over all possible states """
