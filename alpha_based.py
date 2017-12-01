@@ -100,21 +100,23 @@ class CVaRValue:
         for s in world.states():
             cvars = np.zeros((len(world.ACTIONS), self.nb_atoms))
 
-            for a, action_transitions in zip(world.ACTIONS, world.transitions(s)):
 
-                t_p = np.array([t.prob for t in action_transitions])
-                for ix, alpha in enumerate(self.V[s.y, s.x].atoms):
-                    if ix == 0:
-                        continue
 
-                    t_q = np.zeros_like(t_p)
-
-                    for t_ix, t in enumerate(action_transitions):
-                        new_cvar = self.interpolated(s, t, alpha)
-
-                        t_q[t_ix] = t.reward + gamma * new_cvar
-
-                    cvars[a, ix] = np.dot(t_p, t_q)
+            # for a, action_transitions in zip(world.ACTIONS, world.transitions(s)):
+            #
+            #     t_p = np.array([t.prob for t in action_transitions])
+            #     for ix, alpha in enumerate(self.V[s.y, s.x].atoms):
+            #         if ix == 0:
+            #             continue
+            #
+            #         t_q = np.zeros_like(t_p)
+            #
+            #         for t_ix, t in enumerate(action_transitions):
+            #             new_cvar = self.interpolated(s, t, alpha)
+            #
+            #             t_q[t_ix] = t.reward + gamma * new_cvar
+            #
+            #         cvars[a, ix] = np.dot(t_p, t_q)
 
             for ix, alpha in enumerate(self.V[s.y, s.x].atoms):
                 V_.V[s.y, s.x].values[ix] = np.max(cvars[:, ix])
@@ -128,7 +130,8 @@ class CVaRValue:
         if world.height == 1:
 
                 for x, ax_ in zip(range(world.width), ax):
-                    ax_.plot(self.V[0,x].atoms, self.V[0,x].values, 'o-')
+                    # ax_.plot(self.V[0,x].atoms, self.V[0,x].values, 'o-')
+                    ax_.step(self.V[0,x].atoms, self.V[0,x].values, 'o-')
         else:
 
             for y, ax_row in zip(range(world.height), ax):
@@ -154,6 +157,10 @@ def value_iteration(world, nb_atoms):
         V = V_
         i += 1
     return V
+
+
+def
+
 
 
 if __name__ == '__main__':
