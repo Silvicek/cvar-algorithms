@@ -1,7 +1,7 @@
 import numpy as np
 from pulp import *
 import matplotlib.pyplot as plt
-np.random.seed(1337)
+# np.random.seed(4)
 
 def softmax(x):
     exp = np.exp(x)
@@ -11,26 +11,28 @@ def softmax(x):
         return exp / np.sum(exp)
 
 
-nb_atoms = 3
-nb_transitions = 2
+nb_atoms = 5
+nb_transitions = 4
 
-transition_p = np.array([0.25, 0.75])
-
-atoms = np.array([0., 0.25, 0.5, 1.])
-atom_p = atoms[1:] - atoms[:-1]
-
-var_values = np.array([[-1, 0, 0.5],
-                      [-3, -2, -1]])
-# var_values = np.random.randint(-10, 10, [nb_transitions, nb_atoms])
-# var_values.sort()
-
-# transition_p = softmax(np.random.random(nb_transitions))
-# atoms = np.zeros(nb_atoms+1)
-# atoms[1:] = np.cumsum(softmax(np.random.random(nb_atoms)))
+# transition_p = np.array([0.25, 0.75])
+#
+# atoms = np.array([0., 0.25, 0.5, 1.])
 # atom_p = atoms[1:] - atoms[:-1]
 #
-# var_values = np.random.randint(-10, 10, [nb_transitions, nb_atoms])
-# var_values.sort()
+# var_values = np.array([[-1, 0, 0.5],
+#                       [-3, -2, -1]])
+
+
+var_values = np.random.randint(-10, 10, [nb_transitions, nb_atoms])
+var_values.sort()
+
+transition_p = softmax(np.random.random(nb_transitions))
+atoms = np.zeros(nb_atoms+1)
+atoms[1:] = np.cumsum(softmax(np.random.random(nb_atoms)))
+atom_p = atoms[1:] - atoms[:-1]
+
+var_values = np.random.randint(-10, 10, [nb_transitions, nb_atoms])
+var_values.sort()
 
 print(atoms)
 print(atom_p)
@@ -42,8 +44,105 @@ def tamar_lp():
 
 
 def wasserstein():
-    pass
+    # 0) weight by transition probs
+    p = np.outer(transition_p, atom_p).flatten()
 
+    # 1) create quantile function
+    sortargs = var_values.flatten().argsort()
+    var_sorted = var_values.flatten()[sortargs]
+    p_sorted = p.flatten()[sortargs]
+    p_sorted, var_sorted = further_split(p_sorted, var_sorted)
+
+
+    # 2) create LP minimizing |y-var|
+    Y = [LpVariable('y_'+str(i)) for i in range(nb_atoms)]
+    U = [LpVariable('u_'+str(i)) for i in range(len(p_sorted))]  # abs value slack
+
+    prob = LpProblem(name='wasserstein')
+
+    cp = 0.
+    atom_ix = 1
+    for u, p_, v_ in zip(U, p_sorted, var_sorted):
+        cp += p_
+
+        prob.addConstraint(u >= Y[atom_ix-1] - v_)
+        prob.addConstraint(u >= v_ - Y[atom_ix-1])
+
+        if cp == atoms[atom_ix]:
+            atom_ix += 1
+
+    # opt criterion
+    prob.setObjective(sum([u*p for u, p in zip(U, p_sorted)]))
+
+    prob.solve()
+
+    print(value(prob.objective))
+
+    return [value(y_) for y_ in Y]
+
+def wasserstein_median():
+    # 0) weight by transition probs
+    p = np.outer(transition_p, atom_p).flatten()
+
+    # 1) create quantile function
+    sortargs = var_values.flatten().argsort()
+    var_sorted = var_values.flatten()[sortargs]
+    p_sorted = p.flatten()[sortargs]
+    p_sorted, var_sorted = further_split(p_sorted, var_sorted)
+
+    # 2) median minimizes wasserstein
+    cp = 0.
+    var_solution = []
+    atom_ix = 0
+    for p_, v_ in zip(p_sorted, var_sorted):
+        cp += p_
+        if cp >= atoms[atom_ix] + atom_p[atom_ix]/2:
+            atom_ix += 1
+            var_solution.append(v_)
+
+        if atom_ix == nb_atoms:
+            break
+
+    return var_solution
+
+
+def further_split(p, v):
+    cp = 0.
+    atom_ix = 1
+    new_p = []
+    new_v = []
+
+    for ix, (p_, v_) in enumerate(zip(p, v)):
+        while abs(p_) > 1e-5:
+            if cp+p_ >= atoms[atom_ix]:
+                p__ = atoms[atom_ix] - cp
+                p_ = p_ - p__
+                atom_ix += 1
+                cp += p__
+
+                new_p.append(p__)
+                new_v.append(v_)
+
+            else:
+                cp += p_
+                new_p.append(p_)
+                new_v.append(v_)
+                p_ = 0
+
+    # print('------------------')
+    # print(new_p)
+    # print(new_v)
+    return new_p, new_v
+
+
+def exact_pv():
+    p = np.outer(transition_p, atom_p).flatten()
+
+    # 1) sort
+    sortargs = var_values.flatten().argsort()
+    var_sorted = var_values.flatten()[sortargs]
+    p_sorted = p.flatten()[sortargs]
+    return p_sorted, var_sorted
 
 def simple_sort():
     # 0) weight by transition probs
@@ -54,6 +153,8 @@ def simple_sort():
     var_sorted = var_values.flatten()[sortargs]
     p_sorted = p.flatten()[sortargs]
 
+    p_sorted, var_sorted = further_split(p_sorted, var_sorted)
+
     # 2) compute yV for each atom
 
     yV = np.zeros(nb_atoms)
@@ -62,17 +163,14 @@ def simple_sort():
         cp = 0.
         for p_, v_ in zip(p_sorted, var_sorted):
             cp += p_
-            if cp >= atom:
-                p__ = atom - (cp-p_)
-                cs += p__ * v_
+            cs += p_ * v_
+            if cp == atom:
                 break
-            else:
-                cs += p_ * v_
         yV[ix] = cs
 
-    print('--------------')
-    print(yV)
-    print(-11/16, -17/16, -21/16)
+    # print('--------------')
+    # print(yV)
+    # print(-11/16, -17/16, -21/16)
     # 3) get vars from yV
     last = 0.
     var_solution = np.zeros_like(yV)
@@ -84,10 +182,42 @@ def simple_sort():
     return var_solution
 
 
+def plot(exact, *solutions):
+
+    fig, ax = plt.subplots(1, 2)
+
+    p, v = exact
+
+    # var
+    ax[0].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), where='pre')
+    for sol in solutions:
+        sol = list(sol)
+        ax[0].step(atoms, sol + [sol[-1]], where='post')
+
+    ax[0].legend(['exact', 'simple_sort', 'wasserstein LP', 'wasserstein median'])
 
 
-print(simple_sort())
+    # cvar
+    ax[1].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
+    for sol in solutions:
+        ax[1].plot(atoms, np.insert(np.cumsum(atom_p * sol), 0, 0), 'o-')
+
+    ax[1].legend(['exact', 'simple_sort', 'wasserstein LP', 'wasserstein median'])
 
 
 
+    plt.show()
 
+
+
+ss = simple_sort()
+w = wasserstein()
+wm = wasserstein_median()
+
+print('sort:', ss)
+print('wasserstein LP:', w)
+print('wasserstein med:', wm)
+
+
+
+plot(exact_pv(), ss, w, wm)
