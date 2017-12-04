@@ -10,19 +10,21 @@ def softmax(x):
     else:
         return exp / np.sum(exp)
 
+nb_atoms = 3
+nb_transitions = 2
 
-nb_atoms = 5
-nb_transitions = 4
+transition_p = np.array([0.25, 0.75])
 
-# transition_p = np.array([0.25, 0.75])
-#
-# atoms = np.array([0., 0.25, 0.5, 1.])
-# atom_p = atoms[1:] - atoms[:-1]
-#
-# var_values = np.array([[-1, 0, 0.5],
-#                       [-3, -2, -1]])
+atoms = np.array([0., 0.25, 0.5, 1.])
+atom_p = atoms[1:] - atoms[:-1]
+
+var_values = np.array([[-1, 0, 0.5],
+                      [-3, -2, -1]])
 
 
+
+nb_atoms = 4
+nb_transitions = 2
 var_values = np.random.randint(-10, 10, [nb_transitions, nb_atoms])
 var_values.sort()
 
@@ -184,30 +186,58 @@ def simple_sort():
 
 def plot(exact, *solutions):
 
-    fig, ax = plt.subplots(1, 2)
+    fig, ax = plt.subplots(2, 2)
 
     p, v = exact
 
     # var
-    ax[0].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), where='pre')
+    ax[0][0].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), where='pre')
     for sol in solutions:
         sol = list(sol)
-        ax[0].step(atoms, sol + [sol[-1]], where='post')
+        ax[0][0].step(atoms, sol + [sol[-1]], where='post')
 
-    ax[0].legend(['exact', 'simple_sort', 'wasserstein LP', 'wasserstein median'])
+    ax[0][0].legend(['exact', 'simple_sort', 'wasserstein LP', 'wasserstein median'])
 
+
+    # yV
+    ax[0][1].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
+    for sol in solutions:
+        ax[0][1].plot(atoms, np.insert(np.cumsum(atom_p * sol), 0, 0), 'o-')
+
+    ax[0][1].legend(['exact', 'simple_sort', 'wasserstein LP', 'wasserstein median'])
 
     # cvar
-    ax[1].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
+    p, v = var_to_cvar(p, v)
+    ax[1][0].plot(p, v)
     for sol in solutions:
-        ax[1].plot(atoms, np.insert(np.cumsum(atom_p * sol), 0, 0), 'o-')
+        p, v = var_to_cvar(atom_p, sol)
+        ax[1][0].plot(p, v)
 
-    ax[1].legend(['exact', 'simple_sort', 'wasserstein LP', 'wasserstein median'])
-
-
+    ax[1][0].legend(['exact', 'simple_sort', 'wasserstein LP', 'wasserstein median'])
 
     plt.show()
 
+
+
+
+def var_to_cvar(p, var, res=0.01):
+
+    cvar = np.zeros(int(1/res))
+
+    cp = 0.
+    ccp = 0.
+    cv = 0.
+    ix = 0
+    for p_, v_ in zip(p, var):
+
+        while ccp < min(1, cp+p_):
+
+            ccp += res
+            cv += res*v_
+            cvar[ix] = cv / ccp
+            ix += 1
+        cp = ccp
+    return np.arange(res, 1+res, res), cvar
 
 
 ss = simple_sort()
