@@ -159,26 +159,30 @@ class VarBasedPolicy(Policy):
 class TamarPolicy(Policy):
     __name__ = 'Tamar-like'
 
-    def __init__(self, Q, alpha):
-        self.Q = Q
+    def __init__(self, V, alpha):
+        self.V = V
         self.alpha = alpha
         self.orig_alpha = alpha
+        self.last_state = None
 
     def next_action(self, t):
 
-        action_distributions = self.Q[:, t.state.y, t.state.x]
+        if self.last_state is None:
+            a, _ = self.V[t.state.y, t.state.x].next_action_xis(self.alpha)
 
-        if self.var is None:
-            cvars = cvar(action_distributions, self.alpha)
-            a = np.argmax(cvars)
-            self.var = action_distributions[a].var(self.alpha)
+            self.last_state = t.state
         else:
-            self.var = np.clip((self.var - t.reward) / gamma, MIN_VALUE, MAX_VALUE)
 
-        a = np.argmax([d.exp_(self.var) for d in action_distributions])
+            _, self.alpha = self.V[self.last_state.y, self.last_state.x].next_action_xis(self.alpha, t)
+            print(self.alpha)
+
+            a, _ = self.V[t.state.y, t.state.x].next_action_xis(self.alpha)
+
+            self.last_state = t.state
 
         return a
 
     def reset(self):
-        self.var = None
+        self.alpha = self.orig_alpha
+        self.last_state = None
 
