@@ -195,9 +195,6 @@ def simple_sort():
                 break
         yV[ix] = cs
 
-    # print('--------------')
-    # print(yV)
-    # print(-11/16, -17/16, -21/16)
     # 3) get vars from yV
     last = 0.
     var_solution = np.zeros_like(yV)
@@ -275,18 +272,20 @@ if __name__ == '__main__':
     var_values = np.array([[-1, 0, 0.5],
                            [-3, -2, -1]])
 
-    nb_atoms = 4
-    nb_transitions = 2
-    var_values = np.random.randint(-10, 10, [nb_transitions, nb_atoms])
-    var_values.sort()
+    # ================================================
 
-    transition_p = softmax(np.random.random(nb_transitions))
-    atoms = np.zeros(nb_atoms + 1)
-    atoms[1:] = np.cumsum(softmax(np.random.random(nb_atoms)))
-    atom_p = atoms[1:] - atoms[:-1]
-
-    var_values = np.random.randint(-10, 10, [nb_transitions, nb_atoms])
-    var_values.sort()
+    # nb_atoms = 4
+    # nb_transitions = 2
+    # var_values = np.random.randint(-10, 10, [nb_transitions, nb_atoms])
+    # var_values.sort()
+    #
+    # transition_p = softmax(np.random.random(nb_transitions))
+    # atoms = np.zeros(nb_atoms + 1)
+    # atoms[1:] = np.cumsum(softmax(np.random.random(nb_atoms)))
+    # atom_p = atoms[1:] - atoms[:-1]
+    #
+    # var_values = np.random.randint(-10, 10, [nb_transitions, nb_atoms])
+    # var_values.sort()
 
     print(atoms)
     print(atom_p)
