@@ -54,7 +54,7 @@ def log_spaced_atoms(nb_atoms):
 
 class MarkovState:
 
-    def __init__(self, nb_atoms=5):
+    def __init__(self, nb_atoms=3):
         self.nb_atoms = nb_atoms
         self.var = np.zeros(nb_atoms)
         self.atoms = log_spaced_atoms(nb_atoms)         # e.g. [0, 0.25, 0.5, 1]
@@ -64,6 +64,7 @@ class MarkovState:
         # action x (transition, var)
 
         self.last_info = info
+        # TODO: fix this ugly
 
         vars = []
         cvars = []
@@ -172,6 +173,7 @@ class MarkovState:
             else:
                 xis[i] += p_
                 cv += p_ * v
+                p += p_
 
         return cv, xis / transition_p
 
@@ -198,13 +200,17 @@ class MarkovState:
 
         if alpha == 0:
 
-            return 3, 0
+            a = np.argmax(np.array([np.min(self.last_info[a][1]) for a in range(len(self.last_info))]))
 
+            return a, 0
 
         best = (-1e6, 0, 0)
         a = 0
         for t, var in self.last_info:
             cv, xis = self.tamar_lp_single(a, alpha)
+            cv2, xis2 = self.reconstruct_xis([t_.prob for t_ in t], var, alpha)
+            # TODO: fix until equals
+            assert abs(cv-cv2) < 1e-3
             if cv > best[0]:
                 best = (cv, xis, a)
             a += 1
@@ -217,7 +223,6 @@ class MarkovState:
         t_ix = self.last_info[a][0].index(transition)
 
         return a, xis[t_ix]
-
 
     def tamar_lp_single(self, a, alpha):
         """
@@ -354,7 +359,7 @@ def epoch(world, policy, max_iters=100, plot_machine=None):
 
 if __name__ == '__main__':
 
-    # world = GridWorld(1, 2, random_action_p=0.1)
+    # world = GridWorld(1, 2, random_action_p=0.3)
     world = GridWorld(4, 6, random_action_p=0.3)
 
     # generate_multinomial(world_ideal)
@@ -363,7 +368,7 @@ if __name__ == '__main__':
     # 1/(3^4.5*(7/9)^10.5) = 0.1
     alpha = 0.1
     V = value_iteration(world)
-    V[3,0].plot()
+    # V[3,0].plot()
 
     tamar_policy = TamarPolicy(V, alpha)
 

@@ -180,6 +180,7 @@ class TamarPolicy(Policy):
 
             self.last_state = t.state
 
+        print('action=', a)
         return a
 
     def reset(self):
