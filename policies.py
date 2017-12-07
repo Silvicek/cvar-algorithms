@@ -164,26 +164,26 @@ class TamarPolicy(Policy):
         self.alpha = alpha
         self.orig_alpha = alpha
         self.last_state = None
+        self.last_action = None
+        self.last_xis = None
 
-    def next_action(self, t):
+    def next_action(self, transition):
 
-        if self.last_state is None:
-            a, _ = self.V[t.state.y, t.state.x].next_action_xis(self.alpha)
+        if self.last_state is not None:
+            t_ix = list(self.V.transitions(self.last_state.y, self.last_state.x, self.last_action)).index(transition)
+            self.alpha = self.last_xis[t_ix]
 
-            self.last_state = t.state
-        else:
+        self.last_action, self.last_xis = self.V.next_action(transition.state.y, transition.state.x, self.alpha)
+        self.last_state = transition.state
 
-            _, self.alpha = self.V[self.last_state.y, self.last_state.x].next_action_xis(self.alpha, t)
-            print(self.alpha)
 
-            a, _ = self.V[t.state.y, t.state.x].next_action_xis(self.alpha)
+        print('alpha=', self.alpha)
 
-            self.last_state = t.state
-
-        print('action=', a)
-        return a
+        return self.last_action
 
     def reset(self):
         self.alpha = self.orig_alpha
         self.last_state = None
+        self.last_action = None
+        self.last_xis = None
 
