@@ -47,9 +47,12 @@ def init(world, construct):
     return V
 
 
-def log_spaced_atoms(nb_atoms):
-    spacing = 2
-    return np.array([0] + [1. / spacing ** (nb_atoms - 1 - i) for i in range(nb_atoms)])
+def spaced_atoms(nb_atoms):
+    if LOG:
+        spacing = 2
+        return np.array([0] + [1. / spacing ** (nb_atoms - 1 - i) for i in range(nb_atoms)])
+    else:
+        return np.linspace(0, 1, nb_atoms+1)
 
 
 class ValueFunction:
@@ -65,11 +68,17 @@ class ValueFunction:
 
         for a in world.ACTIONS:
             t = list(self.transitions(y, x, a))
-            r = np.array([t_.reward for t_ in t])
 
             var_values = self.transition_vars(y, x, a)
 
-            v, yv = self.V[y, x].compute_cvar_by_sort([t_.prob for t_ in t], var_values)
+            if TAMAR:
+                v, yv = self.V[y, x].compute_cvar_by_lp([t_.prob for t_ in t], var_values)
+            else:
+
+                if WASSERSTEIN:
+                    v, yv = self.V[y, x].compute_wasserstein([t_.prob for t_ in t], var_values)
+                else:
+                    v, yv = self.V[y, x].compute_cvar_by_sort([t_.prob for t_ in t], var_values)
             vars.append(v)
             cvars.append(yv)
 
@@ -92,10 +101,10 @@ class ValueFunction:
         best = (-1e6, 0, 0)
         for a in self.world.ACTIONS:
 
-            cv, xis = self.tamar_lp_single(y, x, a, alpha)
-            cv2, xis2 = self.reconstruct_xis(y, x, a, alpha)
-
-            assert abs(cv-cv2) < 1e-3
+            if TAMAR:
+                cv, xis = self.tamar_lp_single(y, x, a, alpha)
+            else:
+                cv, xis = self.reconstruct_xis(y, x, a, alpha)
 
             if cv > best[0]:
                 best = (cv, xis, a)
@@ -120,7 +129,6 @@ class ValueFunction:
         transition_p = [t.prob for t in self.transitions(y, x, a)]
         var_values = self.transition_vars(y, x, a)
         nb_transitions = len(transition_p)
-
 
         Xi = [LpVariable('xi_' + str(i)) for i in range(nb_transitions)]
         I = [LpVariable('I_' + str(i)) for i in range(nb_transitions)]
@@ -196,10 +204,10 @@ class MarkovState:
     def __init__(self):
         self.nb_atoms = NB_ATOMS
         self.var = np.zeros(self.nb_atoms)
-        self.atoms = log_spaced_atoms(self.nb_atoms)    # e.g. [0, 0.25, 0.5, 1]
+        self.atoms = spaced_atoms(self.nb_atoms)    # e.g. [0, 0.25, 0.5, 1]
         self.atom_p = self.atoms[1:] - self.atoms[:-1]  # [0.25, 0.25, 0.5]
 
-    def plot(self):
+    def plot(self, show=True):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(1, 2)
 
@@ -208,20 +216,20 @@ class MarkovState:
 
         # yV
         # ax[1].plot(self.atoms, np.insert(np.cumsum(atom_p * sol), 0, 0), 'o-')
-        plt.show()
+        if show:
+            plt.show()
 
-    def cvar(self, alpha):
-        atom_p = self.atoms[1:] - self.atoms[:-1]
+    def y_cvar(self, alpha, var=None):
+
+        if var is None:
+            var = self.var
+
         if alpha == 0:
-            print('dont care anymore')
-            return min(self.var)
-        elif alpha == 1:
-            print('expected value from now on')
-            return np.dot(self.var, atom_p)
+            return min(var)
 
         p = 0.
         cv = 0.
-        for p_, v_ in zip(atom_p, self.var):
+        for p_, v_ in zip(self.atom_p, var):
             if p + p_ >= alpha:
                 cv += (alpha-p) * v_
                 break
@@ -229,7 +237,10 @@ class MarkovState:
                 cv += p_ * v_
                 p += p_
 
-        return cv / alpha
+        return cv
+
+    def expected_value(self):
+        return np.dot(self.atom_p, self.var)
 
     def compute_cvar_by_sort(self, transition_p, var_values):
         """
@@ -271,6 +282,94 @@ class MarkovState:
 
         return var_solution, yV
 
+    def compute_wasserstein(self, transition_p, var_values):
+        # 0) weight by transition probs
+        p = np.outer(transition_p, self.atom_p).flatten()
+
+        # 1) create quantile function
+        sortargs = var_values.flatten().argsort()
+        var_sorted = var_values.flatten()[sortargs]
+        p_sorted = p.flatten()[sortargs]
+        p_sorted, var_sorted = further_split(p_sorted, var_sorted, self.atoms)  # TODO: cleaner
+
+        # 2) weighted median minimizes wasserstein
+        cp = 0.
+        var_solution = []
+        atom_ix = 0
+        for ix, p_, v_ in zip(range(len(p_sorted)), p_sorted, var_sorted):
+
+            median_p = self.atoms[atom_ix] + self.atom_p[atom_ix] / 2
+
+            # if there is a step near the middle, use the midpoint
+            if abs(cp + p_ - median_p) < self.atom_p[atom_ix] / 100:
+                var_solution.append((v_ + var_sorted[ix + 1]) / 2)
+                atom_ix += 1
+            # if we get over median, this must be it's value
+            elif cp + p_ > median_p:
+                atom_ix += 1
+                var_solution.append(v_)
+
+            cp += p_
+
+            if atom_ix == self.nb_atoms:
+                break
+        return var_solution, np.array([self.y_cvar(alpha, var_solution) for alpha in self.atoms[1:]])
+
+    def compute_cvar_by_lp(self, transition_p, var_values):
+        """
+        Create LP:
+        min Sum p_t * I
+
+        0 <= xi <= 1/alpha
+        Sum p_t * xi == 1
+
+        I = max{yV}
+
+        return yV[alpha]
+        """
+
+        def single_lp(alpha):
+
+            nb_transitions = len(transition_p)
+
+            Xi = [LpVariable('xi_' + str(i)) for i in range(nb_transitions)]
+            I = [LpVariable('I_' + str(i)) for i in range(nb_transitions)]
+
+            prob = LpProblem(name='tamar')
+
+            for xi in Xi:
+                prob.addConstraint(0 <= xi)
+                prob.addConstraint(xi <= 1. / alpha)
+            prob.addConstraint(sum([xi * p for xi, p in zip(Xi, transition_p)]) == 1)
+
+            for xi, i, var in zip(Xi, I, var_values):
+                last = 0.
+                f_params = []
+                for ix in range(self.nb_atoms):
+                    k = var[ix]
+                    last += k * self.atom_p[ix]
+                    q = last - k * self.atoms[ix + 1]
+                    prob.addConstraint(i >= k * xi * alpha + q)
+                    f_params.append((k, q))
+
+            # opt criterion
+            prob.setObjective(sum([i * p for i, p in zip(I, transition_p)]))
+
+            prob.solve()
+
+            return value(prob.objective)
+
+        yV = [single_lp(alpha) for alpha in self.atoms[1:]]
+        # extract vars:
+        last = 0.
+        new_var = np.zeros_like(yV)
+        for i in range(self.nb_atoms):
+            ddalpha = (yV[i] - last) / self.atom_p[i]
+            new_var[i] = ddalpha
+            last = yV[i]
+
+        return new_var, yV
+
 
 def value_update(world, V):
 
@@ -294,16 +393,17 @@ def value_iteration(world):
     V = ValueFunction(world)
     i = 0
     while True:
-        # V[0,0].plot()
         V_ = value_update(world, V)
-        print('UPDATED')
-        # if i > 10:
-        #     break
+        # print(V_.V[1, 0].expected_value())
+        # print(V_.V[1, 0].plot())
         if converged(V, V_, world) and i != 0:
             print("value fully learned after %d iterations" % (i,))
             break
         V = V_
         i += 1
+
+        print('Value iteration:', i)
+
     return V
 
 
@@ -345,24 +445,49 @@ def epoch(world, policy, max_iters=100, plot_machine=None):
     return S, A, R
 
 
+# TODO: investigate why for alpha=1 we are not the same as exp:
+#     [[-9.125 - 8.042 - 6.921 - 5.803 - 4.688 - 3.576]
+#      [-8.416 - 7.242 - 6.018 - 4.802 - 3.603 - 2.424]
+#      [-9.497 - 8.381 - 6.736 - 4.992 - 3.157 - 1.226]
+#      [-11.035   0.      0.      0.      0.       0.]]
+
+
 if __name__ == '__main__':
 
+    # TODO: wasserstein value iteration, compare with tamar
+
     # world = GridWorld(1, 2, random_action_p=0.3)
-    world = GridWorld(4, 6, random_action_p=0.3)
+    world = GridWorld(4, 6, random_action_p=0.1)
 
     # generate_multinomial(world_ideal)
 
-    NB_ATOMS = 10
+    NB_ATOMS = 15
+    TAMAR = False
+    WASSERSTEIN = True
+    LOG = True
 
-    print('ATOMS:', log_spaced_atoms(NB_ATOMS))
+    print('ATOMS:', spaced_atoms(NB_ATOMS))
 
     # =============== PI setup
     # 1/(3^4.5*(7/9)^10.5) = 0.1
     starting_alpha = 0.1
     V = value_iteration(world)
-    # V[3,0].plot()
+    # V.V[3,0].plot()
+    # print(V.V[3,0].y_cvar(1.0))
+    # print(V.V[3,0].expected_value())
 
     tamar_policy = TamarPolicy(V, starting_alpha)
+
+    # =============== plot dynamic
+    V_visual = np.array([[V.V[i, j].y_cvar(starting_alpha) for j in range(len(V.V[i]))] for i in range(len(V.V))])
+    print(V_visual)
+    plot_machine = PlotMachine(world, V_visual)
+    policy = tamar_policy
+    # policy = greedy_policy
+    for i in range(100):
+        S, A, R = epoch(world, policy, plot_machine=plot_machine)
+        print('{}: {}'.format(i, np.sum(R)))
+        policy.reset()
 
     # greedy_policy = GreedyPolicy(V)
     # naive_cvar_policy = NaiveCvarPolicy(V, alpha=alpha)
@@ -387,16 +512,6 @@ if __name__ == '__main__':
     # V_cvar = V_to_v_argmax(world, V_cvar)
     # show_fixed(initial_state, V_to_v_argmax(V_exp), np.argmax(V_exp, axis=0))
     # show_fixed(initial_state, V_to_v_argmax(V_cvar), np.argmax(V_cvar, axis=0))
-
-    # =============== plot dynamic
-    V_visual = np.array([[V.V[i,j].cvar(starting_alpha) for j in range(len(V.V[i]))]for i in range(len(V.V))])
-    plot_machine = PlotMachine(world, V_visual)
-    policy = tamar_policy
-    # policy = greedy_policy
-    for i in range(100):
-        S, A, R = epoch(world, policy, plot_machine=plot_machine)
-        print('{}: {}'.format(i, np.sum(R)))
-        policy.reset()
 
     # ============== other
     # V_cvar = eval_fixed_policy(np.argmax(V_cvar, axis=0))

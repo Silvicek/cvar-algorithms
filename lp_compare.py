@@ -120,11 +120,18 @@ def wasserstein_median():
     cp = 0.
     var_solution = []
     atom_ix = 0
-    for p_, v_ in zip(p_sorted, var_sorted):
-        cp += p_
-        if cp >= atoms[atom_ix] + atom_p[atom_ix]/2:
+    for ix, p_, v_ in zip(range(len(p_sorted)), p_sorted, var_sorted):
+
+        median_p = atoms[atom_ix] + atom_p[atom_ix]/2
+
+        if abs(cp + p_ - median_p) < atom_p[atom_ix]/100:  # there is a step near the middle
+            var_solution.append((v_ + var_sorted[ix+1])/2)
+            atom_ix += 1
+        elif cp + p_ > atoms[atom_ix] + atom_p[atom_ix]/2:
             atom_ix += 1
             var_solution.append(v_)
+
+        cp += p_
 
         if atom_ix == nb_atoms:
             break
