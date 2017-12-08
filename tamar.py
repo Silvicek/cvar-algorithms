@@ -1,6 +1,6 @@
 from cliffwalker import *
 from util import *
-from policies import TamarPolicy
+from policies import TamarPolicy, TamarVarBasedPolicy
 from visual import PlotMachine
 from random_variable import RandomVariable, MIN_VALUE, MAX_VALUE
 import numpy as np
@@ -49,8 +49,11 @@ def init(world, construct):
 
 def spaced_atoms(nb_atoms):
     if LOG:
-        spacing = 2
-        return np.array([0] + [1. / spacing ** (nb_atoms - 1 - i) for i in range(nb_atoms)])
+
+        if SPACING < 2:
+            return np.array([0, 0.5 / SPACING ** (nb_atoms-2)] + [1. / SPACING ** (nb_atoms - 1 - i) for i in range(1, nb_atoms)])
+
+        return np.array([0] + [1. / SPACING ** (nb_atoms - 1 - i) for i in range(nb_atoms)])
     else:
         return np.linspace(0, 1, nb_atoms+1)
 
@@ -104,7 +107,7 @@ class ValueFunction:
             if TAMAR:
                 cv, xis = self.tamar_lp_single(y, x, a, alpha)
             else:
-                cv, xis = self.reconstruct_xis(y, x, a, alpha)
+                _, cv, xis = self.var_cvar_xis(y, x, a, alpha)
 
             if cv > best[0]:
                 best = (cv, xis, a)
@@ -157,28 +160,26 @@ class ValueFunction:
 
         return value(prob.objective), [value(xi)*alpha for xi in Xi]
 
-    def reconstruct_xis(self, y, x, a, alpha):
+    def var_cvar_xis(self, y, x, a, alpha):
         """
-        Compute CVaR and xi values in O(nlogn)
+        Compute VaR, CVaR and xi values in O(nlogn)
+        :param y:
+        :param x:
+        :param a:
+        :param alpha:
+        :return: var, cvar, xis
         """
         # TODO: O(n)
-        # XXX: move to V?
 
         transitions = list(self.transitions(y, x, a))
         var_values = self.transition_vars(y, x, a)
 
-        # transform all to tuples (p, i_t, v)
-        info = np.empty(var_values.shape, dtype=object)
-        for i_t, t in enumerate(transitions):
-            for i_v, v, p_ in zip(range(len(var_values[i_t])), var_values[i_t], self.V[y, x].atom_p):
-                info[i_t, i_v] = (p_*t.prob, i_t, v)
-
-        info = list(info.flatten())
-        info.sort(key=lambda x: x[-1])
+        info = extract_distribution(transitions, var_values, self.V[y, x].atom_p)
 
         xis = np.zeros(len(transitions))
         p = 0.
         cv = 0.
+        v = 0.
         for p_, i, v in info:
             if p + p_ >= alpha:
                 xis[i] += alpha-p
@@ -189,7 +190,25 @@ class ValueFunction:
                 cv += p_ * v
                 p += p_
 
-        return cv, xis / np.array([t.prob for t in transitions])
+        return v, cv, xis / np.array([t.prob for t in transitions])
+
+    def y_var(self, y, x, a, var):
+
+        transitions = list(self.transitions(y, x, a))
+        var_values = self.transition_vars(y, x, a)
+
+        info = extract_distribution(transitions, var_values, self.V[y, x].atom_p)
+
+        yv = 0.
+        p = 0
+        for p_, _, v_ in info:
+            if v_ >= var:  # TODO: solve for discrete distributions
+                break
+            else:
+                yv += p_ * v_
+            p += p_
+
+        return p, yv
 
     def transitions(self, y, x, a):
         for t in self.world.transitions(State(y, x))[a]:
@@ -197,6 +216,25 @@ class ValueFunction:
 
     def transition_vars(self, y, x, a):
         return np.array([t.reward + gamma * self.V[t.state.y, t.state.x].var for t in self.transitions(y, x, a)])
+
+
+def extract_distribution(transitions, var_values, atom_p):
+    """
+
+    :param transitions:
+    :param var_values:
+    :param atom_p:
+    :return: sorted list of tuples (probability, index, var)
+    """
+    info = np.empty(var_values.shape, dtype=object)
+    for i_t, t in enumerate(transitions):
+        for i_v, v, p_ in zip(range(len(var_values[i_t])), var_values[i_t], atom_p):
+            info[i_t, i_v] = (p_ * t.prob, i_t, v)
+
+    info = list(info.flatten())
+    info.sort(key=lambda x: x[-1])
+    return info
+
 
 
 class MarkovState:
@@ -236,6 +274,20 @@ class MarkovState:
             else:
                 cv += p_ * v_
                 p += p_
+
+        return cv
+
+    def y_var(self, var, var_values=None):
+
+        if var_values is None:
+            var_values = self.var
+
+        cv = 0.
+        for p_, v_ in zip(self.atom_p, var_values):
+            if v_ > var:  # TODO: solve for discrete distributions
+                break
+            else:
+                cv += p_ * v_
 
         return cv
 
@@ -381,22 +433,25 @@ def value_update(world, V):
 
 
 def converged(V, V_, world):
-    eps = 1e-3
+    eps = 1e-1
     for s in world.states():
-        dist = np.sum((V.V[s.y, s.x].var-V_.V[s.y, s.x].var)**2)
+        dist = np.max(np.abs(V.V[s.y, s.x].var-V_.V[s.y, s.x].var))
         if dist > eps:
+            # print(s)
+            # print(V.V[s.y, s.x].var)
+            # print(V_.V[s.y, s.x].var)
             return False
     return True
 
 
-def value_iteration(world):
+def value_iteration(world, max_iters=1e3):
     V = ValueFunction(world)
     i = 0
     while True:
         V_ = value_update(world, V)
-        # print(V_.V[1, 0].expected_value())
-        # print(V_.V[1, 0].plot())
-        if converged(V, V_, world) and i != 0:
+        # if i % 10 == 0:
+        #     V_.V[0, 5].plot()
+        if (converged(V, V_, world) and i != 0) or i > max_iters:
             print("value fully learned after %d iterations" % (i,))
             break
         V = V_
@@ -445,79 +500,51 @@ def epoch(world, policy, max_iters=100, plot_machine=None):
     return S, A, R
 
 
-# TODO: investigate why for alpha=1 we are not the same as exp:
-#     [[-9.125 - 8.042 - 6.921 - 5.803 - 4.688 - 3.576]
-#      [-8.416 - 7.242 - 6.018 - 4.802 - 3.603 - 2.424]
-#      [-9.497 - 8.381 - 6.736 - 4.992 - 3.157 - 1.226]
-#      [-11.035   0.      0.      0.      0.       0.]]
+# TODO: control error by adding atoms
+# TODO: smart convergence
 
 
 if __name__ == '__main__':
 
-    # TODO: wasserstein value iteration, compare with tamar
-
-    # world = GridWorld(1, 2, random_action_p=0.3)
+    # world = GridWorld(1, 3, random_action_p=0.3)
     world = GridWorld(4, 6, random_action_p=0.1)
 
-    # generate_multinomial(world_ideal)
 
+    # atom spacing
     NB_ATOMS = 15
-    TAMAR = False
-    WASSERSTEIN = True
     LOG = True
+    SPACING = 2
+
+    TAMAR = False
+    # WASSERSTEIN = False
+    WASSERSTEIN = True
+
 
     print('ATOMS:', spaced_atoms(NB_ATOMS))
 
     # =============== PI setup
     # 1/(3^4.5*(7/9)^10.5) = 0.1
-    starting_alpha = 0.1
-    V = value_iteration(world)
+    alpha = 0.1
+    V = value_iteration(world, max_iters=100)
     # V.V[3,0].plot()
+    # print(V.V[1,5].var)
     # print(V.V[3,0].y_cvar(1.0))
     # print(V.V[3,0].expected_value())
 
-    tamar_policy = TamarPolicy(V, starting_alpha)
+    tamar_policy = TamarPolicy(V, alpha)
+    var_policy = TamarVarBasedPolicy(V, alpha)
 
     # =============== plot dynamic
-    V_visual = np.array([[V.V[i, j].y_cvar(starting_alpha) for j in range(len(V.V[i]))] for i in range(len(V.V))])
+    V_visual = np.array([[V.V[i, j].y_cvar(alpha) for j in range(len(V.V[i]))] for i in range(len(V.V))])
     print(V_visual)
     plot_machine = PlotMachine(world, V_visual)
     policy = tamar_policy
-    # policy = greedy_policy
+    # policy = var_policy
     for i in range(100):
         S, A, R = epoch(world, policy, plot_machine=plot_machine)
         print('{}: {}'.format(i, np.sum(R)))
         policy.reset()
 
-    # greedy_policy = GreedyPolicy(V)
-    # naive_cvar_policy = NaiveCvarPolicy(V, alpha=alpha)
-    # var_policy = VarBasedPolicy(V, alpha=alpha)
-
-    # exhaustive_stats(world_ideal, 1e6, GreedyPolicy, NaiveCvarPolicy, VarBasedPolicy)
-
-    # =============== PI stats
-    # nb_epochs = 100000
-    # policy_stats(world_ideal, greedy_policy, alpha, nb_epochs=nb_epochs)
-    # policy_stats(world_ideal, var_policy, alpha, nb_epochs=nb_epochs)
-
-    # policy_stats(world_tweaked, greedy_policy, alpha, nb_epochs=nb_epochs)
-    # policy_stats(world_tweaked, var_policy, alpha, nb_epochs=nb_epochs)
-
-    # policy_stats(world_ideal, naive_cvar_policy, alpha, nb_epochs=nb_epochs)
-
-    # =============== plot fixed
-    # V_exp = expected_value(V)
-    # V_exp = V_to_v_argmax(world, V_exp)
-    # V_cvar = cvar(V, alpha)
-    # V_cvar = V_to_v_argmax(world, V_cvar)
-    # show_fixed(initial_state, V_to_v_argmax(V_exp), np.argmax(V_exp, axis=0))
-    # show_fixed(initial_state, V_to_v_argmax(V_cvar), np.argmax(V_cvar, axis=0))
-
-    # ============== other
-    # V_cvar = eval_fixed_policy(np.argmax(V_cvar, axis=0))
-    # interesting = V_cvar[2, -1, 0]
-    # print(interesting.cvar(alpha))
-    # interesting.plot()
 
 
 
