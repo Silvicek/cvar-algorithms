@@ -1,16 +1,8 @@
 from cliffwalker import *
 from util import *
-from policies import TamarPolicy, TamarVarBasedPolicy
-from visual import PlotMachine
-from random_variable import RandomVariable, MIN_VALUE, MAX_VALUE
 import numpy as np
 import copy
-import time
 from pulp import *
-
-
-np.random.seed(1337)
-np.set_printoptions(3)
 
 
 def further_split(p, v, atoms):
@@ -47,17 +39,6 @@ def init(world, construct):
     return V
 
 
-def spaced_atoms(nb_atoms):
-    if LOG:
-
-        if SPACING < 2:
-            return np.array([0, 0.5 / SPACING ** (nb_atoms-2)] + [1. / SPACING ** (nb_atoms - 1 - i) for i in range(1, nb_atoms)])
-
-        return np.array([0] + [1. / SPACING ** (nb_atoms - 1 - i) for i in range(nb_atoms)])
-    else:
-        return np.linspace(0, 1, nb_atoms+1)
-
-
 class ValueFunction:
 
     def __init__(self, world):
@@ -69,7 +50,7 @@ class ValueFunction:
         vars = []
         cvars = []
 
-        for a in world.ACTIONS:
+        for a in self.world.ACTIONS:
             t = list(self.transitions(y, x, a))
 
             var_values = self.transition_vars(y, x, a)
@@ -462,88 +443,23 @@ def value_iteration(world, max_iters=1e3):
     return V
 
 
-def epoch(world, policy, max_iters=100, plot_machine=None):
-    """
-    Evaluates a single epoch starting at start_state, using a given policy.
-    :param start_state:
-    :param policy: Policy instance
-    :param max_iters: end the epoch after this #steps
-    :return: States, Actions, Rewards
-    """
-    s = world.initial_state
-    S = [s]
-    A = []
-    R = []
-    i = 0
-    r = 0
-    t = Transition(s, 0, 0)
-    while s not in world.goal_states and i < max_iters:
-        a = policy.next_action(t)
-
-        if plot_machine is not None:
-            plot_machine.step(s, a)
-            time.sleep(0.5)
-
-
-        A.append(a)
-        trans = world.transitions(s)[a]
-        state_probs = [tran.prob for tran in trans]
-        t = trans[np.random.choice(len(trans), p=state_probs)]
-
-        r = t.reward
-        s = t.state
-
-        R.append(r)
-        S.append(s)
-        i += 1
-
-    return S, A, R
-
-
 # TODO: control error by adding atoms
 # TODO: smart convergence
-
 
 if __name__ == '__main__':
 
     # world = GridWorld(1, 3, random_action_p=0.3)
     world = GridWorld(4, 6, random_action_p=0.1)
 
-
-    # atom spacing
-    NB_ATOMS = 15
-    LOG = True
-    SPACING = 2
-
-    TAMAR = False
-    # WASSERSTEIN = False
-    WASSERSTEIN = True
-
-
     print('ATOMS:', spaced_atoms(NB_ATOMS))
 
     # =============== PI setup
-    # 1/(3^4.5*(7/9)^10.5) = 0.1
     alpha = 0.1
     V = value_iteration(world, max_iters=100)
     # V.V[3,0].plot()
     # print(V.V[1,5].var)
     # print(V.V[3,0].y_cvar(1.0))
     # print(V.V[3,0].expected_value())
-
-    tamar_policy = TamarPolicy(V, alpha)
-    var_policy = TamarVarBasedPolicy(V, alpha)
-
-    # =============== plot dynamic
-    V_visual = np.array([[V.V[i, j].y_cvar(alpha) for j in range(len(V.V[i]))] for i in range(len(V.V))])
-    print(V_visual)
-    plot_machine = PlotMachine(world, V_visual)
-    policy = tamar_policy
-    # policy = var_policy
-    for i in range(100):
-        S, A, R = epoch(world, policy, plot_machine=plot_machine)
-        print('{}: {}'.format(i, np.sum(R)))
-        policy.reset()
 
 
 
