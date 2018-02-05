@@ -3,6 +3,18 @@ from pulp import *
 import matplotlib.pyplot as plt
 # np.random.seed(4)
 
+# ==================== global settings
+
+# color cycle
+from cycler import cycler
+plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728'])))
+
+# tex
+plt.rc('text', usetex=True)
+# plt.rc('font', family='serif')
+# ====================
+
+
 
 def softmax(x):
     exp = np.exp(x)
@@ -213,9 +225,9 @@ def simple_sort():
     return var_solution
 
 
-def plot(exact, *solutions):
+def plot(exact, *solutions, legend=True):
 
-    fig, ax = plt.subplots(2, 2)
+    fig, ax = plt.subplots(2, 2, figsize=(10,8))
 
     p, v = exact
 
@@ -226,25 +238,47 @@ def plot(exact, *solutions):
         print(sol)
         ax[0][0].step(atoms, sol + [sol[-1]], where='post')
 
-    ax[0][0].legend(['exact'] + [name for name, _ in solutions])
+    ax[0][0].set_title('Quantile function')
 
     # yV
-    ax[0][1].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
+    ax[1][0].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
     for _, sol in solutions:
-        ax[0][1].plot(atoms, np.insert(np.cumsum(atom_p * sol), 0, 0), 'o-')
+        ax[1][0].plot(atoms, np.insert(np.cumsum(atom_p * sol), 0, 0), 'o-')
 
-    ax[0][1].legend(['exact'] + [name for name, _ in solutions])
+    ax[1][0].set_title('$\\alpha$CVaR')
 
     # cvar
     p, v = var_to_cvar_approx(p, v)
-    ax[1][0].plot(p, v)
+    ax[0][1].plot(p, v)
     for _, sol in solutions:
         p, v = var_to_cvar_approx(atom_p, sol)
-        ax[1][0].plot(p, v)
+        ax[0][1].plot(p, v)
 
-    ax[1][0].legend(['exact'] + [name for name, _ in solutions])
+    ax[0][1].set_title('CVaR')
 
-    plt.show()
+
+    # legend
+    if legend:
+        ax[0][0].legend(['Exact'] + [name for name, _ in solutions])
+        ax[1][0].legend(['exact'] + [name for name, _ in solutions])
+        ax[0][1].legend(['exact'] + [name for name, _ in solutions])
+
+    # hide last plot
+    ax[1][1].axis('off')
+
+    # grid: on
+    ax[0][0].grid()
+    ax[1][0].grid()
+    ax[0][1].grid()
+
+    # hide upper x axis
+    plt.setp(ax[0][0].get_xticklabels(), visible=False)
+
+    # plt.show()
+    plt.savefig('files/exactvarcvar.pdf')
+
+
+
 
 
 def var_to_cvar_approx(p, var, res=0.01):
@@ -268,16 +302,29 @@ def var_to_cvar_approx(p, var, res=0.01):
 
 
 if __name__ == '__main__':
-    nb_atoms = 3
+    # nb_atoms = 3
+    # nb_transitions = 2
+    #
+    # transition_p = np.array([0.25, 0.75])
+    #
+    # atoms = np.array([0., 0.25, 0.5, 1.])
+    # atom_p = atoms[1:] - atoms[:-1]
+    #
+    # var_values = np.array([[-1, 0, 0.5],
+    #                        [-3, -2, -1]])
+
+    nb_atoms = 4
     nb_transitions = 2
 
     transition_p = np.array([0.25, 0.75])
 
-    atoms = np.array([0., 0.25, 0.5, 1.])
+    atoms = np.array([0., 0.25, 0.5, 0.75, 1.])
     atom_p = atoms[1:] - atoms[:-1]
 
-    var_values = np.array([[-1, 0, 0.5],
-                           [-3, -2, -1]])
+    var_values = np.array([[-1, 0, 0.5, 1],
+                           [-3, -2, -1, 0]])
+
+
 
     # ================================================
 
@@ -307,4 +354,14 @@ if __name__ == '__main__':
     print('wasserstein med:', wm)
     print('tamar:', tam)
 
-    plot(exact_pv(), ('sort', ss), ('wasserstein', wm), ('tamar', tam))
+    # plot(exact_pv(), ('sort', ss), ('wasserstein', wm), ('tamar', tam))
+    plot(exact_pv(), ('CVaR VI', tam))
+    plot(exact_pv(), ('CVaR VI', tam))
+
+
+
+
+
+
+
+
