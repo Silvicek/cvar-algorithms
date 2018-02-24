@@ -10,18 +10,21 @@ dirs = {0: (-0.8, 0), 1: (0.8, 0), 2: (0, -0.8), 3: (0, 0.8)}
 
 class PlotMachine:
 
-    def __init__(self, world, V):
-        self.V = V
+    def __init__(self, world, V=None):
+        if V is None:
+            self.V = -1 * np.ones((world.height, world.width))
+        else:
+            self.V = V
         # darken cliff
-        cool = np.min(V) * 1.1
+        cool = np.min(self.V) * 1.1
         for s in world.cliff_states:
-            V[s.y, s.x] = cool
+            self.V[s.y, s.x] = cool
 
         plt.ion()
 
         self.fig, self.ax = plt.subplots()
 
-        im = self.ax.imshow(V, interpolation='nearest', origin='upper')
+        im = self.ax.imshow(self.V, interpolation='nearest', origin='upper')
         plt.tick_params(axis='both', which='both', bottom='off', top='off',
                         labelbottom='off', right='off', left='off', labelleft='off')
         divider = make_axes_locatable(self.ax)

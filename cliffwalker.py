@@ -24,12 +24,16 @@ class GridWorld:
         self.risky_p_loss = risky_p_loss
         self.random_action_p = random_action_p
 
+        # self.risky_goal_states = {State(0, 5)}
+        self.risky_goal_states = {}
+
         self.initial_state = State(self.height - 1, 0)
         self.goal_states = {State(self.height - 1, self.width - 1)}
 
-        self.risky_goal_states = {}
-
-        self.cliff_states = {State(self.height - 1, i) for i in range(1, self.width - 1)}
+        if height == 1:
+            self.cliff_states = {}
+        else:
+            self.cliff_states = {State(self.height - 1, i) for i in range(1, self.width - 1)}
 
     def states(self):
         """ iterator over all possible states """

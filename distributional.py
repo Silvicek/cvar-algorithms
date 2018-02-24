@@ -206,6 +206,17 @@ def epoch(world, policy, max_iters=100, plot_machine=None):
     return S, A, R
 
 
+def generate_multinomial(world):
+    Q = policy_iteration(world)
+
+    import pickle
+
+    pickle.dump(Q, open('q_random_variables.pkl', 'wb'))
+    print(Q)
+
+    quit()
+
+
 def sample_runs(p, z):
 
     for i in range(2, 7):
@@ -221,6 +232,8 @@ if __name__ == '__main__':
 
     world_ideal = GridWorld(4, 6, random_action_p=0.1)
     world_tweaked = GridWorld(4, 6, random_action_p=0.3)
+
+    # generate_multinomial(world_ideal)
 
     # =============== PI setup
     # 1/(3^4.5*(7/9)^10.5) = 0.1
@@ -238,8 +251,8 @@ if __name__ == '__main__':
     # policy_stats(world_ideal, greedy_policy, alpha, nb_epochs=nb_epochs)
     # policy_stats(world_ideal, var_policy, alpha, nb_epochs=nb_epochs)
 
-    policy_stats(world_tweaked, greedy_policy, alpha, nb_epochs=nb_epochs)
-    policy_stats(world_tweaked, var_policy, alpha, nb_epochs=nb_epochs)
+    # policy_stats(world_tweaked, greedy_policy, alpha, nb_epochs=nb_epochs)
+    # policy_stats(world_tweaked, var_policy, alpha, nb_epochs=nb_epochs)
 
     # policy_stats(world_ideal, naive_cvar_policy, alpha, nb_epochs=nb_epochs)
 
@@ -254,7 +267,7 @@ if __name__ == '__main__':
     # =============== plot dynamic
     plot_machine = PlotMachine(world_ideal, V_exp)
     policy = var_policy
-    policy = greedy_policy
+    # policy = greedy_policy
     for i in range(100):
         S, A, R = epoch(world_ideal, policy, plot_machine=plot_machine)
         print('{}: {}'.format(i, np.sum(R)))

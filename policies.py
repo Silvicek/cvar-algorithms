@@ -155,3 +155,63 @@ class VarBasedPolicy(Policy):
     def reset(self):
         self.var = None
 
+
+class TamarPolicy(Policy):
+    __name__ = 'Tamar-like'
+
+    def __init__(self, V, alpha):
+        self.V = V
+        self.alpha = alpha
+        self.orig_alpha = alpha
+        self.last_state = None
+        self.last_action = None
+        self.last_xis = None
+
+    def next_action(self, transition):
+
+        if self.last_state is not None:
+            t_ix = list(self.V.transitions(self.last_state.y, self.last_state.x, self.last_action)).index(transition)
+            self.alpha = self.last_xis[t_ix]
+
+        self.last_action, self.last_xis = self.V.next_action(transition.state.y, transition.state.x, self.alpha)
+        self.last_state = transition.state
+
+        # print('alpha:', self.alpha)
+
+        return self.last_action
+
+    def reset(self):
+        self.alpha = self.orig_alpha
+        self.last_state = None
+        self.last_action = None
+        self.last_xis = None
+
+
+class TamarVarBasedPolicy(Policy):
+    __name__ = 'Tamar VaR-based CVaR'
+
+    def __init__(self, V, alpha):
+        self.V = V
+        self.alpha = alpha
+        self.var = None
+
+    def next_action(self, t):
+        if self.var is None:
+            best = (0, -1e6, 0)  # (var, cvar, action)
+            for a in self.V.world.ACTIONS:
+                v, cv, _ = self.V.var_cvar_xis(t.state.y, t.state.x, a, self.alpha)
+                if cv > best[1]:
+                    best = v, cv, a
+            v, _, a = best
+            self.var = v
+            return a
+        else:
+            self.var = (self.var - t.reward)/gamma
+
+            a = np.argmax([self.V.y_var(t.state.y, t.state.x, a, self.var)[1] for a in self.V.world.ACTIONS])
+
+            # print('alpha:', self.V.y_var(t.state.y, t.state.x, a, self.var)[0])
+            return a
+
+    def reset(self):
+        self.var = None
