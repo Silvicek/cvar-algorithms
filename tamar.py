@@ -55,7 +55,7 @@ class ValueFunction:
 
             var_values = self.transition_vars(y, x, a)
 
-            if TAMAR:
+            if TAMAR_LP:
                 v, yv = self.V[y, x].compute_cvar_by_lp([t_.prob for t_ in t], var_values)
             else:
 
@@ -73,19 +73,12 @@ class ValueFunction:
         self.V[y, x].var = np.array([vars[best_args[i], i] for i in range(len(self.V[y, x].var))])
 
     def next_action(self, y, x, alpha):
-        if alpha == 0:
-
-            print([np.min(self.transition_vars(y, x, a)) for a in self.world.ACTIONS])
-            print([self.transition_vars(y, x, a) for a in self.world.ACTIONS])
-
-            a = np.argmax(np.array([np.min(self.transition_vars(y, x, a)) for a in self.world.ACTIONS]))
-
-            return a, np.zeros(4)
+        assert alpha != 0
 
         best = (-1e6, 0, 0)
         for a in self.world.ACTIONS:
 
-            if TAMAR:
+            if TAMAR_LP:
                 cv, xis = self.tamar_lp_single(y, x, a, alpha)
             else:
                 _, cv, xis = self.var_cvar_xis(y, x, a, alpha)
@@ -414,14 +407,20 @@ def value_update(world, V):
 
 
 def converged(V, V_, world):
-    eps = 1e-1
+    eps = 1e-4
+    max_val = eps
     for s in world.states():
-        dist = np.max(np.abs(V.V[s.y, s.x].var-V_.V[s.y, s.x].var))
-        if dist > eps:
-            # print(s)
-            # print(V.V[s.y, s.x].var)
-            # print(V_.V[s.y, s.x].var)
-            return False
+        # dist = np.max(np.abs(V.V[s.y, s.x].var-V_.V[s.y, s.x].var))
+        cvars = np.array([V.V[s.y, s.x].y_cvar(alpha)*alpha for alpha in V.V[s.y, s.x].atoms])
+        cvars_ = np.array([V_.V[s.y, s.x].y_cvar(alpha)*alpha for alpha in V_.V[s.y, s.x].atoms])
+        dist = np.max(np.abs(cvars - cvars_))
+        max_val = max(max_val, dist)
+    if max_val > eps:
+        print(max_val)
+        # print(s)
+        # print(V.V[s.y, s.x].var)
+        # print(V_.V[s.y, s.x].var)
+        return False
     return True
 
 
@@ -444,7 +443,8 @@ def value_iteration(world, max_iters=1e3):
 
 
 # TODO: control error by adding atoms
-# TODO: smart convergence
+# TODO: smart convergence  ---  the cvar converges, not necessarily the distributions (?)
+# TODO: V -> Q
 
 if __name__ == '__main__':
 

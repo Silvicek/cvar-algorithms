@@ -176,7 +176,7 @@ class TamarPolicy(Policy):
         self.last_action, self.last_xis = self.V.next_action(transition.state.y, transition.state.x, self.alpha)
         self.last_state = transition.state
 
-        print('alpha:', self.alpha)
+        # print('alpha:', self.alpha)
 
         return self.last_action
 
@@ -210,7 +210,7 @@ class TamarVarBasedPolicy(Policy):
 
             a = np.argmax([self.V.y_var(t.state.y, t.state.x, a, self.var)[1] for a in self.V.world.ACTIONS])
 
-            print('alpha:', self.V.y_var(t.state.y, t.state.x, a, self.var)[0])
+            # print('alpha:', self.V.y_var(t.state.y, t.state.x, a, self.var)[0])
             return a
 
     def reset(self):

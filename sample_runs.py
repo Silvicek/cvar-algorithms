@@ -52,6 +52,7 @@ def several_epochs(arg):
         S, A, R = epoch(world, policy)
         policy.reset()
         rewards[i] = np.sum(R)
+        rewards[i] = np.dot(R, np.array([gamma ** i for i in range(len(R))]))
 
     return rewards
 
@@ -82,7 +83,32 @@ def policy_stats(world, policy, alpha, nb_epochs, verbose=True):
         print('cvar_{}={}'.format(alpha, cvar))
         # print('var_{}={}'.format(alpha, var))
 
-    return cvar
+    return cvar, rewards
+
+
+def exhaustive_stats(world, epochs, *args):
+    V = value_iteration(world)
+
+    alphas = np.array([1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005, 0.001])
+
+    cvars = np.zeros((len(args), len(alphas)))
+    names = []
+
+    for i, policy in enumerate(args):
+        names.append(policy.__name__)
+        for j, alpha in enumerate(alphas):
+            pol = policy(V, alpha)
+
+            cvars[i, j], _ = policy_stats(world, pol, alpha=alpha, nb_epochs=int(epochs), verbose=False)
+
+            print('{}_{} done...'.format(pol.__name__, alpha))
+
+    import pickle
+    pickle.dump({'cvars': cvars, 'alphas': alphas, 'names': names}, open('files/stats.pkl', 'wb'))
+    print(cvars)
+
+    from visual import plot_cvars
+    plot_cvars()
 
 
 if __name__ == '__main__':
@@ -92,16 +118,25 @@ if __name__ == '__main__':
     print('ATOMS:', spaced_atoms(NB_ATOMS))
 
     # =============== VI setup
-    alpha = 0.1
     V = value_iteration(world, max_iters=100)
+    alpha = 0.25
+    print(V.V[3, 0].y_cvar(alpha)/alpha)
 
-
-    tamar_policy = TamarPolicy(V, alpha)
     var_policy = TamarVarBasedPolicy(V, alpha)
+    tamar_policy = TamarPolicy(V, alpha)
+
+    # =============== VI stats
+    # nb_epochs = int(1e6)
+    # rewards_sample = []
+    # for alpha in [0.1, 0.25, 0.5, 1.]:
+    #     _, rewards = policy_stats(world, TamarPolicy(V, alpha), alpha, nb_epochs=nb_epochs)
+    #     rewards_sample.append(rewards)
+    # np.save('files/sample_rewards_tamar.npy', np.array(rewards_sample))
+    # policy_stats(world, var_policy, alpha, nb_epochs=nb_epochs)
 
     # =============== plot dynamic
     V_visual = np.array([[V.V[i, j].y_cvar(alpha) for j in range(len(V.V[i]))] for i in range(len(V.V))])
-    print(V_visual)
+    # print(V_visual)
     plot_machine = PlotMachine(world, V_visual)
     policy = tamar_policy
     # policy = var_policy

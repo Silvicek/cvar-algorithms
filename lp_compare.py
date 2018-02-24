@@ -10,19 +10,9 @@ from cycler import cycler
 plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728'])))
 
 # tex
-plt.rc('text', usetex=True)
+# plt.rc('text', usetex=True)
 # plt.rc('font', family='serif')
 # ====================
-
-
-
-def softmax(x):
-    exp = np.exp(x)
-    if len(x.shape) > 1:
-        return exp / np.sum(exp, axis=0)
-    else:
-        return exp / np.sum(exp)
-
 
 def tamar_lp_single(alpha):
     """
@@ -227,61 +217,57 @@ def simple_sort():
 
 def plot(exact, *solutions, legend=True):
 
-    fig, ax = plt.subplots(2, 2, figsize=(10,8))
+    fig, ax = plt.subplots(1, 3, figsize=(18, 5))
 
     p, v = exact
 
     # var
-    ax[0][0].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), where='pre')
+    ax[0].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), where='pre')
     for _, sol in solutions:
         sol = list(sol)
         print(sol)
-        ax[0][0].step(atoms, sol + [sol[-1]], where='post')
+        ax[0].step(atoms, sol + [sol[-1]], where='post')
 
-    ax[0][0].set_title('Quantile function')
+    ax[0].set_title('Quantile function')
 
     # yV
-    ax[1][0].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
+    ax[1].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
     for _, sol in solutions:
-        ax[1][0].plot(atoms, np.insert(np.cumsum(atom_p * sol), 0, 0), 'o-')
+        ax[1].plot(atoms, np.insert(np.cumsum(atom_p * sol), 0, 0), 'o-')
 
-    ax[1][0].set_title('$\\alpha$CVaR')
+    ax[1].set_title('$\\alpha$CVaR')
 
     # cvar
     p, v = var_to_cvar_approx(p, v)
-    ax[0][1].plot(p, v)
+    ax[2].plot(p, v)
     for _, sol in solutions:
         p, v = var_to_cvar_approx(atom_p, sol)
-        ax[0][1].plot(p, v)
+        ax[2].plot(p, v)
 
-    ax[0][1].set_title('CVaR')
-
+    ax[2].set_title('CVaR')
 
     # legend
     if legend:
-        ax[0][0].legend(['Exact'] + [name for name, _ in solutions])
-        ax[1][0].legend(['exact'] + [name for name, _ in solutions])
-        ax[0][1].legend(['exact'] + [name for name, _ in solutions])
+        ax[0].legend(['Original'] + [name for name, _ in solutions])
+        ax[1].legend(['Original'] + [name for name, _ in solutions])
+        ax[2].legend(['Original'] + [name for name, _ in solutions])
 
     # hide last plot
-    ax[1][1].axis('off')
+    # ax[1][1].axis('off')
 
     # grid: on
-    ax[0][0].grid()
-    ax[1][0].grid()
-    ax[0][1].grid()
+    ax[0].grid()
+    ax[1].grid()
+    ax[2].grid()
 
     # hide upper x axis
-    plt.setp(ax[0][0].get_xticklabels(), visible=False)
+    # plt.setp(ax[0].get_xticklabels(), visible=False)
 
-    # plt.show()
-    plt.savefig('files/exactvarcvar.pdf')
-
-
+    plt.show()
+    # plt.savefig('files/exactvarcvar.pdf')
 
 
-
-def var_to_cvar_approx(p, var, res=0.01):
+def var_to_cvar_approx(p, var, res=0.001):
 
     cvar = np.zeros(int(1/res))
 
@@ -299,6 +285,42 @@ def var_to_cvar_approx(p, var, res=0.01):
             ix += 1
         cp = ccp
     return np.arange(res, 1+res, res), cvar
+
+
+def plot_process():
+    plt.rcParams['axes.grid'] = True
+
+    fig, ax = plt.subplots(2, 4, figsize=(16, 8), sharey=True)
+
+
+    # var
+    p, v = atom_p, var_values[0]
+    ax[0][0].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), 'o-', where='pre')
+    p, v = atom_p, var_values[1]
+    ax[0][1].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), 'o-', where='pre')
+    p, v = exact_pv()
+    ax[0][2].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), 'o-', where='pre')
+    p, v = atom_p, tamar_lp()
+    ax[0][3].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), 'o-', where='pre')
+
+    plt.savefig('files/multivar.pdf')
+    plt.show()
+
+    fig, ax = plt.subplots(2, 4, figsize=(16, 8), sharey=True)
+    # yCVaR
+    p, v = atom_p, var_values[0]
+    ax[1][0].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
+    p, v = atom_p, var_values[1]
+    ax[1][1].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
+    p, v = exact_pv()
+    ax[1][2].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
+    p, v = atom_p, tamar_lp()
+    ax[1][3].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
+
+    plt.savefig('files/multiycvar.pdf')
+    plt.show()
+
+
 
 
 if __name__ == '__main__':
@@ -321,9 +343,8 @@ if __name__ == '__main__':
     atoms = np.array([0., 0.25, 0.5, 0.75, 1.])
     atom_p = atoms[1:] - atoms[:-1]
 
-    var_values = np.array([[-1, 0, 0.5, 1],
+    var_values = np.array([[-0.5, 0.25, 0.5, 1],
                            [-3, -2, -1, 0]])
-
 
 
     # ================================================
@@ -354,10 +375,11 @@ if __name__ == '__main__':
     print('wasserstein med:', wm)
     print('tamar:', tam)
 
+
+
     # plot(exact_pv(), ('sort', ss), ('wasserstein', wm), ('tamar', tam))
     plot(exact_pv(), ('CVaR VI', tam))
-    plot(exact_pv(), ('CVaR VI', tam))
-
+    # plot_process()
 
 
 
