@@ -9,7 +9,7 @@ State = namedtuple('State', ['y', 'x'])
 # encapsulates a transition to state and its probability
 Transition = namedtuple('Transition', ['state', 'prob', 'reward'])  # transition to state with probability prob
 
-
+# TODO: move gamma here?
 class GridWorld:
     """ Cliffwalker. """
 
@@ -18,7 +18,7 @@ class GridWorld:
     ACTION_UP = 2
     ACTION_DOWN = 3
     ACTIONS = [ACTION_LEFT, ACTION_RIGHT, ACTION_UP, ACTION_DOWN]
-    FALL_REWARD = -13
+    FALL_REWARD = -10
 
     def __init__(self, height, width, random_action_p=0.1, risky_p_loss=0.15):
 

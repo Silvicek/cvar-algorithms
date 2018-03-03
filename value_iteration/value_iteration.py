@@ -1,34 +1,21 @@
 from cliffwalker import *
-from util import *
+from util.constants import gamma
+from util.util import spaced_atoms
+from util import cvar_computation
 import numpy as np
 import copy
 from pulp import *
 
+# atom spacing
+NB_ATOMS = 4
+LOG = True  # atoms are log-spaced
+SPACING = 2
 
-def further_split(p, v, atoms):  # TODO: remove this
-    cp = 0.
-    atom_ix = 1
-    new_p = []
-    new_v = []
+# use LP when computing CVaRs
+TAMAR_LP = False
 
-    for ix, (p_, v_) in enumerate(zip(p, v)):
-        while abs(p_) > 1e-5:
-            if cp+p_ >= atoms[atom_ix]:
-                p__ = atoms[atom_ix] - cp
-                p_ = p_ - p__
-                atom_ix += 1
-                cp += p__
-
-                new_p.append(p__)
-                new_v.append(v_)
-
-            else:
-                cp += p_
-                new_p.append(p_)
-                new_v.append(v_)
-                p_ = 0
-
-    return new_p, new_v
+WASSERSTEIN = False
+# WASSERSTEIN = True
 
 
 class ValueFunction:
@@ -149,6 +136,8 @@ class ValueFunction:
         p = 0.
         cv = 0.
         v = 0.
+
+        # TODO: unify with util
         for p_, i, v in info:
             if p + p_ >= alpha:
                 xis[i] += alpha-p
@@ -205,13 +194,12 @@ def extract_distribution(transitions, var_values, atom_p):
     return info
 
 
-
 class MarkovState:
 
     def __init__(self):
         self.nb_atoms = NB_ATOMS
         self.var = np.zeros(self.nb_atoms)
-        self.atoms = spaced_atoms(self.nb_atoms)    # e.g. [0, 0.25, 0.5, 1]
+        self.atoms = spaced_atoms(self.nb_atoms, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
         self.atom_p = self.atoms[1:] - self.atoms[:-1]  # [0.25, 0.25, 0.5]
 
     def plot(self, show=True):
@@ -279,27 +267,11 @@ class MarkovState:
         var_sorted = var_values.flatten()[sortargs]
         p_sorted = p.flatten()[sortargs]
 
-        p_sorted, var_sorted = further_split(p_sorted, var_sorted, self.atoms)
-
         # 2) compute yV for each atom
-        yV = np.zeros(self.nb_atoms)
-        for ix, atom in enumerate(self.atoms[1:]):
-            cs = 0.
-            cp = 0.
-            for p_, v_ in zip(p_sorted, var_sorted):
-                cp += p_
-                cs += p_ * v_
-                if cp == atom:
-                    break
-            yV[ix] = cs
+        yV = cvar_computation.yc_vector(self.atoms, p_sorted, var_sorted)
 
         # 3) get vars from yV
-        last = 0.
-        var_solution = np.zeros_like(yV)
-        for i in range(self.nb_atoms):
-            ddalpha = (yV[i] - last) / self.atom_p[i]
-            var_solution[i] = ddalpha
-            last = yV[i]
+        var_solution = cvar_computation.yc_to_var(self.atoms, yV)
 
         return var_solution, yV
 
@@ -446,7 +418,7 @@ if __name__ == '__main__':
     # world = GridWorld(1, 3, random_action_p=0.3)
     world = GridWorld(4, 6, random_action_p=0.1)
 
-    print('ATOMS:', spaced_atoms(NB_ATOMS))
+    print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== PI setup
     alpha = 0.1

@@ -2,40 +2,14 @@
     Is not fully compatible with distributional setting.
 """
 
-from cliffwalker import *
-from plots.visual import show_fixed
-from util import q_to_v_argmax
-from util.constants import *
+from cliffwalker import GridWorld
+from plots.grid_plot_machine import show_fixed
+from util.constants import gamma
+import numpy as np
 
-
-# random policy: each action has the same probability
-def random_policy(s, Q):
-    return [1.0 / len(GridWorld.ACTIONS) for a in GridWorld.ACTIONS]
-
-
-# greedy policy gives the best action (based on action value function Q) a probability of 1, others are given 0
-def greedy_policy(s, Q):
-    probs = np.zeros_like(GridWorld.ACTIONS, dtype=float)
-    probs[np.argmax(Q[:, s.y, s.x])] = 1.0
-    return probs
-
-
-# epsilon-greedy policy gives random action with probability eps or greedy one otherwise
-def epsilon_greedy_policy(eps=0.0):
-    def epsilon_greedy_policy_helper(s, Q):
-        if np.random.uniform() < eps:
-            return random_policy(s, Q)
-        else:
-            return greedy_policy(s, Q)
-
-    return epsilon_greedy_policy_helper
-
-
-def policy_sample(policy, *args):
-    p = policy(*args)
-    return np.random.choice(GridWorld.ACTIONS, p=p)
-
-# ===================== algorithms
+# ========================================
+# algorithms
+# ========================================
 
 
 def value_iteration(world):
@@ -70,10 +44,10 @@ def q_learning(world):
     Q = np.zeros((len(world.ACTIONS), world.height, world.width))
 
     beta = 0.1  # learning rate
-    eps = 0.1
+    eps = 0.5
 
     max_iters = 100
-    max_episodes = 1000
+    max_episodes = 3000
 
     iter = 0
     while True:
@@ -101,8 +75,8 @@ def q_learning(world):
             s = s_
 
         # update learning parameters
-        if iter > 0.5*max_episodes:
-            eps = 0.01
+        if iter > 0.2*max_episodes:
+            eps *= 0.995
         print("{}: eps={}".format(iter, eps))
 
         iter += 1
@@ -112,7 +86,42 @@ def q_learning(world):
 
     return Q
 
-# ==================== other
+
+# ========================================
+# policies
+# ========================================
+
+
+# random policy: each action has the same probability
+def random_policy(s, Q):
+    return [1.0 / len(GridWorld.ACTIONS) for a in GridWorld.ACTIONS]
+
+
+# greedy policy gives the best action (based on action value function Q) a probability of 1, others are given 0
+def greedy_policy(s, Q):
+    probs = np.zeros_like(GridWorld.ACTIONS, dtype=float)
+    probs[np.argmax(Q[:, s.y, s.x])] = 1.0
+    return probs
+
+
+# epsilon-greedy policy gives random action with probability eps or greedy one otherwise
+def epsilon_greedy_policy(eps=0.0):
+    def epsilon_greedy_policy_helper(s, Q):
+        if np.random.uniform() < eps:
+            return random_policy(s, Q)
+        else:
+            return greedy_policy(s, Q)
+
+    return epsilon_greedy_policy_helper
+
+
+def policy_sample(policy, *args):
+    p = policy(*args)
+    return np.random.choice(GridWorld.ACTIONS, p=p)
+
+# ========================================
+# other
+# ========================================
 
 
 def value_update(world, Q, P):
@@ -148,69 +157,21 @@ def eval_fixed_policy(world, P):
         i += 1
     return Q
 
+def q_to_v_argmax(world, Q):
+    """ Converts Q function to V by choosing the best action. """
+    Vnew = np.zeros((world.height, world.width))
+    for s in world.states():
+        a = np.argmax(Q[:, s.y, s.x])
+        Vnew[s.y, s.x] = Q[a, s.y, s.x]
+    return Vnew
 
-# evaluates a single epoch starting at start_state, using a policy which can use
-# an action-value function Q as a parameter
-# returns a triple: states visited, actions taken, rewards taken
-def epoch(world, policy, Q, max_iters=100):
-    s = world.initial_state
-    S = [s]
-    A = []
-    R = []
-    i = 0
-    while s not in world.goal_states and i < max_iters:
-        a = policy_sample(policy, s, Q)
-        A.append(a)
-        trans = world.transitions(s)[a]
-        state_probs = [tran.prob for tran in trans]
-        t = trans[np.random.choice(len(trans), p=state_probs)]
-
-        R.append(t.reward)
-        S.append(t.state)
-        s = t.state
-        i += 1
-
-    return S, A, R
 
 if __name__ == '__main__':
 
     world = GridWorld(4, 6)
 
+    # Q = policy_iteration(world)
     # Q = value_iteration(world)
     Q = q_learning(world)
 
     show_fixed(world, q_to_v_argmax(world, Q), np.argmax(Q, axis=0))
-
-    # ============== length testing
-    lengths = []
-    for i in range(1000):
-        s, a, r = epoch(GridWorld(4, 6, random_action_p=0.3), greedy_policy, Q)
-        # print(r)
-        # quit()
-        lengths.append(len(r))
-    print('expected length=', np.mean(np.array(lengths)))
-
-
-
-
-# if __name__ == '__main__':
-#     # NOTE: PI doesn't converge with gamma=1
-#     # gamma = 0.99
-#     # Q = policy_iteration()
-#
-#     world = GridWorld(4, 6)
-#
-#     Q = value_iteration(world)
-#
-#     show_fixed(world, q_to_v_argmax(world, Q), np.argmax(Q, axis=0))
-#
-#     # ============== length testing
-#     lengths = []
-#     for i in range(1000):
-#         s, a, r = epoch(GridWorld(4, 6, random_action_p=0.3), greedy_policy, Q)
-#         # print(r)
-#         # quit()
-#         lengths.append(len(r))
-#     print('expected length=', np.mean(np.array(lengths)))
-
-

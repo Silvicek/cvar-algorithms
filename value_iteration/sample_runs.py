@@ -1,9 +1,11 @@
 import time
-
+from util.constants import gamma
 from cliffwalker import *
-from plots.visual import PlotMachine
-from policy_improvement.policies import *
+from plots.grid_plot_machine import PlotMachine
+from policy_improvement.policies import GreedyPolicy, TamarPolicy, TamarVarBasedPolicy
 from value_iteration import value_iteration
+from util import cvar_computation
+from util.util import spaced_atoms
 
 
 def epoch(world, policy, max_iters=100, plot_machine=None):
@@ -19,20 +21,16 @@ def epoch(world, policy, max_iters=100, plot_machine=None):
     A = []
     R = []
     i = 0
-    r = 0
     t = Transition(s, 0, 0)
     while s not in world.goal_states and i < max_iters:
         a = policy.next_action(t)
+        A.append(a)
 
         if plot_machine is not None:
             plot_machine.step(s, a)
             time.sleep(0.5)
 
-
-        A.append(a)
-        trans = world.transitions(s)[a]
-        state_probs = [tran.prob for tran in trans]
-        t = trans[np.random.choice(len(trans), p=state_probs)]
+        t = world.sample_transition(s, a)
 
         r = t.reward
         s = t.state
@@ -58,14 +56,6 @@ def several_epochs(arg):
     return rewards
 
 
-def cvar_from_samples(samples, alpha):
-    samples = np.sort(samples)
-    alpha_ix = int(np.round(alpha * len(samples)))
-    var = samples[alpha_ix - 1]
-    cvar = np.mean(samples[:alpha_ix])
-    return var, cvar
-
-
 def policy_stats(world, policy, alpha, nb_epochs, verbose=True):
     import copy
     import multiprocessing as mp
@@ -76,7 +66,7 @@ def policy_stats(world, policy, alpha, nb_epochs, verbose=True):
 
     rewards = np.array(rewards).flatten()
 
-    var, cvar = cvar_from_samples(rewards, alpha)
+    var, cvar = cvar_computation.v_c_from_samples(rewards, alpha)
     if verbose:
         print('----------------')
         print(policy.__name__)
@@ -108,15 +98,13 @@ def exhaustive_stats(world, epochs, *args):
     pickle.dump({'cvars': cvars, 'alphas': alphas, 'names': names}, open('files/stats.pkl', 'wb'))
     print(cvars)
 
-    from plots.visual import plot_cvars
+    from plots.other import plot_cvars
     plot_cvars()
 
 
 if __name__ == '__main__':
 
     world = GridWorld(4, 6, random_action_p=0.1)
-
-    print('ATOMS:', spaced_atoms(NB_ATOMS))
 
     # =============== VI setup
     V = value_iteration(world, max_iters=100)

@@ -1,6 +1,8 @@
+""" Used for generating various unrelated plots used in the thesis. """
 import matplotlib.pyplot as plt
 import scipy.stats
 from cycler import cycler
+from util.util import softmax
 
 from util.constants import *
 

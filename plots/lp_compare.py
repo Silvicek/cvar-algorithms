@@ -1,73 +1,8 @@
-""" Separate file used for early tests and plots. """
-# TODO: delete/merge this file?
+""" Plots comparisons between tamar, sort, wasserstein. """
 import matplotlib.pyplot as plt
-from cycler import cycler
 from pulp import *
-
-from util.cvar_computation import s_to_alpha
-
-plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728', '#009900'])))
-
-# tex
-# plt.rc('text', usetex=True)
-# plt.rc('font', family='serif')
-# ====================
-
-
-def tamar_lp_single(alpha):
-    """
-    Create LP:
-    min Sum p_t * I
-
-    0 <= xi <= 1/alpha
-    Sum p_t * xi == 1
-
-    I = max{yV}
-
-    return yV[alpha]
-    """
-    if alpha == 0:
-        return 0.
-
-    Xi = [LpVariable('xi_' + str(i)) for i in range(nb_transitions)]
-    I = [LpVariable('I_' + str(i)) for i in range(nb_transitions)]
-
-    prob = LpProblem(name='tamar')
-
-    for xi in Xi:
-        prob.addConstraint(0 <= xi)
-        prob.addConstraint(xi <= 1./alpha)
-    prob.addConstraint(sum([xi*p for xi, p in zip(Xi, transition_p)]) == 1)
-
-    for xi, i, var in zip(Xi, I, var_values):
-        last = 0.
-        f_params = []
-        for ix in range(nb_atoms):
-            k = var[ix]
-            last += k * atom_p[ix]
-            q = last - k * atoms[ix+1]
-            prob.addConstraint(i >= k * xi * alpha + q)
-            f_params.append((k,q))
-
-    # opt criterion
-    prob.setObjective(sum([i * p for i, p in zip(I, transition_p)]))
-
-    prob.solve()
-
-    return value(prob.objective)
-
-
-def tamar_lp():
-    yV = [tamar_lp_single(alpha) for alpha in atoms[1:]]
-    # extract vars:
-    last = 0.
-    var_solution = np.zeros_like(yV)
-    for i in range(nb_atoms):
-        ddalpha = (yV[i] - last) / atom_p[i]
-        var_solution[i] = ddalpha
-        last = yV[i]
-
-    return var_solution
+from util import cvar_computation
+import numpy as np
 
 
 def wasserstein_lp():
@@ -140,35 +75,6 @@ def wasserstein_median():
 
     return var_solution
 
-#
-# def further_split(p, v):
-#     cp = 0.
-#     atom_ix = 1
-#     new_p = []
-#     new_v = []
-#
-#     for ix, (p_, v_) in enumerate(zip(p, v)):
-#         while abs(p_) > 1e-5:
-#             if cp+p_ >= atoms[atom_ix]:
-#                 p__ = atoms[atom_ix] - cp
-#                 p_ = p_ - p__
-#                 atom_ix += 1
-#                 cp += p__
-#
-#                 new_p.append(p__)
-#                 new_v.append(v_)
-#
-#             else:
-#                 cp += p_
-#                 new_p.append(p_)
-#                 new_v.append(v_)
-#                 p_ = 0
-#
-#     # print('------------------')
-#     # print(new_p)
-#     # print(new_v)
-#     return new_p, new_v
-
 
 def exact_pv():
     p = np.outer(transition_p, atom_p).flatten()
@@ -178,41 +84,6 @@ def exact_pv():
     var_sorted = var_values.flatten()[sortargs]
     p_sorted = p.flatten()[sortargs]
     return p_sorted, var_sorted
-
-
-def simple_sort():
-    # 0) weight by transition probs
-    p = np.outer(transition_p, atom_p).flatten()
-
-    # 1) sort
-    sortargs = var_values.flatten().argsort()
-    var_sorted = var_values.flatten()[sortargs]
-    p_sorted = p.flatten()[sortargs]
-
-    p_sorted, var_sorted = further_split(p_sorted, var_sorted)
-
-    # 2) compute yV for each atom
-
-    yV = np.zeros(nb_atoms)
-    for ix, atom in enumerate(atoms[1:]):
-        cs = 0.
-        cp = 0.
-        for p_, v_ in zip(p_sorted, var_sorted):
-            cp += p_
-            cs += p_ * v_
-            if cp == atom:
-                break
-        yV[ix] = cs
-
-    # 3) get vars from yV
-    last = 0.
-    var_solution = np.zeros_like(yV)
-    for i in range(nb_atoms):
-        ddalpha = (yV[i]-last)/atom_p[i]
-        var_solution[i] = ddalpha
-        last = yV[i]
-
-    return var_solution
 
 
 def plot(*solutions, legend=True):
@@ -245,13 +116,13 @@ def plot(*solutions, legend=True):
     ax.set_title('CVaR')
 
     # cvar_s
-    ax = axs[3]
-    for _, (p, sol) in solutions:
-        a = [s_to_alpha(s, p, sol) for s in s_range]
-        v = []
-        ax.plot(s_range, v)
-    a = [s_to_alpha(s, atom_p, wm) for s in s_range]
-    cv = []
+    # ax = axs[3]
+    # for _, (p, sol) in solutions:
+    #     a = [s_to_alpha(s, p, sol) for s in s_range]
+    #     v = []
+    #     ax.plot(s_range, v)
+    # a = [s_to_alpha(s, atom_p, wm) for s in s_range]
+    # cv = []
 
     ax.set_title('CVaR(s)')
 
@@ -309,7 +180,7 @@ def plot_process():
     ax[0][1].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), 'o-', where='pre')
     p, v = exact_pv()
     ax[0][2].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), 'o-', where='pre')
-    p, v = atom_p, tamar_lp()
+    p, v = atom_p, cvar_computation.var_from_transitions_lp(atoms, transition_p, var_values)
     ax[0][3].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), 'o-', where='pre')
 
     plt.savefig('files/multivar.pdf')
@@ -323,7 +194,7 @@ def plot_process():
     ax[1][1].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
     p, v = exact_pv()
     ax[1][2].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
-    p, v = atom_p, tamar_lp()
+    p, v = atom_p, cvar_computation.var_from_transitions_lp(atoms, transition_p, var_values)
     ax[1][3].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
 
     plt.savefig('files/multiycvar.pdf')
@@ -373,14 +244,14 @@ if __name__ == '__main__':
     print(var_values)
     print('-----------------------')
 
-    ss = simple_sort()
-    wm = wasserstein_median()
-    tam = tamar_lp()
+    ss, _ = cvar_computation.v_yc_from_transitions_sort(atoms, transition_p, var_values)
+    # wm = wasserstein_median()
+    tam, _ = cvar_computation.v_yc_from_transitions_lp(atoms, transition_p, var_values)
 
     ex_p, ex_v = exact_pv()
 
     print('sort:', ss)
-    print('wasserstein med:', wm)
+    # print('wasserstein med:', wm)
     print('tamar:', tam)
 
     s_range = np.arange(ex_v[0], ex_v[-1], 0.01)
@@ -390,7 +261,8 @@ if __name__ == '__main__':
 
 
     # plot(exact_pv(), ('sort', ss), ('wasserstein', wm), ('tamar', tam))
-    plot(('Exact', (ex_p, ex_v)), ('CVaR VI', (atom_p, tam)), ('Wasserstein', (atom_p, wm)))
+    # plot(('Exact', (ex_p, ex_v)), ('CVaR VI', (atom_p, tam)), ('Wasserstein', (atom_p, wm)))
+    plot(('Exact', (ex_p, ex_v)), ('CVaR VI', (atom_p, tam)), ('CVaR sort', (atom_p, tam)))
     # plot(('Exact', (ex_p, ex_v)), ('CVaR VI', (atoms, tam)), ('Wasserstein', (atoms, wm)))
     # plot_process()
 

@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-import matplotlib
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 
@@ -49,27 +48,6 @@ class PlotMachine:
         self.fig.canvas.flush_events()
 
 
-def plot_cvars():
-    import pickle
-
-    data = pickle.load(open('files/stats.pkl', 'rb'))
-
-    cvars = data['cvars']
-    alphas = np.tile(data['alphas'], (len(cvars), 1))
-    ax = plt.gca()
-    ax.plot(alphas.T, cvars.T, '-')
-    ax.set_xscale('log')
-    ax.set_xticks(alphas[0])
-    ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-    ax.invert_xaxis()
-    ax.set_xlabel('$\\alpha$')
-    ax.set_ylabel('CVaR$_\\alpha$')
-    # ax.set_ylim([-50, -10])
-    ax.legend(data['names'])
-    ax.grid()
-    plt.show()
-
-
 # visualizes the final value function with a fixed policy
 def show_fixed(world, V, P):
 
@@ -107,7 +85,3 @@ def show_fixed(world, V, P):
 
     plt.show()
 
-
-if __name__ == '__main__':
-
-    plot_cvars()

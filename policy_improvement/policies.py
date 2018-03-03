@@ -1,5 +1,6 @@
-from util import *
-
+import numpy as np
+from util.util import expected_value
+from util.constants import gamma
 
 class Policy:
     """ Abstract class representing different policies. """
@@ -49,6 +50,7 @@ class NaiveCvarPolicy(Policy):
 
 
 class AlphaBasedPolicy(Policy):
+    """ Deprecated, diverging policy. """
     __name__ = 'alpha-based CVaR'
 
     def __init__(self, Q, alpha):
