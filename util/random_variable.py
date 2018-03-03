@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
-import numpy as np
-from constants import *
+
+from util.constants import *
 
 
 class RandomVariable:

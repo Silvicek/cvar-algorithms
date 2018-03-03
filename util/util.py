@@ -1,5 +1,6 @@
-from constants import *
 import numpy as np
+
+from util.constants import *
 
 
 # gives a state-value function v(s) based on action-value function q(s, a) and policy

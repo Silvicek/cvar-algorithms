@@ -1,12 +1,9 @@
-import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
-from constants import *
-
-# ==================== global settings
-
-# color cycle
 from cycler import cycler
+
+from util.constants import *
+
 plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728'])))
 
 # tex

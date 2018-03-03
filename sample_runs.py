@@ -1,8 +1,9 @@
-from cliffwalker import *
 import time
-from policies import *
+
+from cliffwalker import *
+from plots.visual import PlotMachine
+from policy_improvement.policies import *
 from value_iteration import value_iteration
-from visual import PlotMachine
 
 
 def epoch(world, policy, max_iters=100, plot_machine=None):
@@ -107,7 +108,7 @@ def exhaustive_stats(world, epochs, *args):
     pickle.dump({'cvars': cvars, 'alphas': alphas, 'names': names}, open('files/stats.pkl', 'wb'))
     print(cvars)
 
-    from visual import plot_cvars
+    from plots.visual import plot_cvars
     plot_cvars()
 
 

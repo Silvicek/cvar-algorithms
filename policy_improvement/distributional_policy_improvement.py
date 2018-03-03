@@ -1,22 +1,10 @@
-from cliffwalker import *
-from util import *
-from policies import AlphaBasedPolicy, VarBasedPolicy, NaiveCvarPolicy, FixedPolicy, GreedyPolicy
-from random_variable import RandomVariable, MIN_VALUE, MAX_VALUE
-import numpy as np
-from visual import show_fixed, PlotMachine
 import time
 
-
-np.random.seed(1337)
-np.set_printoptions(3)
-
-
-def cvar_from_samples(samples, alpha):
-    samples = np.sort(samples)
-    alpha_ix = int(np.round(alpha * len(samples)))
-    var = samples[alpha_ix - 1]
-    cvar = np.mean(samples[:alpha_ix])
-    return var, cvar
+from cliffwalker import *
+from plots.visual import PlotMachine
+from policy_improvement.policies import VarBasedPolicy, NaiveCvarPolicy, GreedyPolicy
+from util.cvar_computation import cvar_from_samples
+from util.random_variable import RandomVariable, MIN_VALUE, MAX_VALUE
 
 
 def policy_iteration(world):
@@ -164,7 +152,7 @@ def exhaustive_stats(world, epochs, *args):
     pickle.dump({'cvars': cvars, 'alphas': alphas, 'names': names}, open('files/stats.pkl', 'wb'))
     print(cvars)
 
-    from visual import plot_cvars
+    from plots.visual import plot_cvars
     plot_cvars()
 
 
@@ -206,17 +194,6 @@ def epoch(world, policy, max_iters=100, plot_machine=None):
     return S, A, R
 
 
-def generate_multinomial(world):
-    Q = policy_iteration(world)
-
-    import pickle
-
-    pickle.dump(Q, open('q_random_variables.pkl', 'wb'))
-    print(Q)
-
-    quit()
-
-
 def sample_runs(p, z):
 
     for i in range(2, 7):
@@ -227,8 +204,6 @@ def sample_runs(p, z):
 
 
 if __name__ == '__main__':
-
-    # TODO: try naive PI
 
     world_ideal = GridWorld(4, 6, random_action_p=0.1)
     world_tweaked = GridWorld(4, 6, random_action_p=0.3)

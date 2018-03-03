@@ -11,6 +11,7 @@ Transition = namedtuple('Transition', ['state', 'prob', 'reward'])  # transition
 
 
 class GridWorld:
+    """ Cliffwalker. """
 
     ACTION_LEFT = 0
     ACTION_RIGHT = 1
@@ -89,6 +90,7 @@ class GridWorld:
         return transitions_full
 
     def sample_transition(self, s, a):
+        """ Sample a single transition, duh. """
         trans = self.transitions(s)[a]
         state_probs = [tran.prob for tran in trans]
         return trans[np.random.choice(len(trans), p=state_probs)]

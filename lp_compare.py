@@ -1,15 +1,11 @@
 """ Separate file used for early tests and plots. """
 # TODO: delete/merge this file?
-import numpy as np
-from pulp import *
 import matplotlib.pyplot as plt
-from util import softmax
-# np.random.seed(4)
-
-# ==================== global settings
-
-# color cycle
 from cycler import cycler
+from pulp import *
+
+from util.cvar_computation import s_to_alpha
+
 plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728', '#009900'])))
 
 # tex
@@ -74,7 +70,7 @@ def tamar_lp():
     return var_solution
 
 
-def wasserstein():
+def wasserstein_lp():
     # 0) weight by transition probs
     p = np.outer(transition_p, atom_p).flatten()
 
@@ -144,34 +140,34 @@ def wasserstein_median():
 
     return var_solution
 
-
-def further_split(p, v):
-    cp = 0.
-    atom_ix = 1
-    new_p = []
-    new_v = []
-
-    for ix, (p_, v_) in enumerate(zip(p, v)):
-        while abs(p_) > 1e-5:
-            if cp+p_ >= atoms[atom_ix]:
-                p__ = atoms[atom_ix] - cp
-                p_ = p_ - p__
-                atom_ix += 1
-                cp += p__
-
-                new_p.append(p__)
-                new_v.append(v_)
-
-            else:
-                cp += p_
-                new_p.append(p_)
-                new_v.append(v_)
-                p_ = 0
-
-    # print('------------------')
-    # print(new_p)
-    # print(new_v)
-    return new_p, new_v
+#
+# def further_split(p, v):
+#     cp = 0.
+#     atom_ix = 1
+#     new_p = []
+#     new_v = []
+#
+#     for ix, (p_, v_) in enumerate(zip(p, v)):
+#         while abs(p_) > 1e-5:
+#             if cp+p_ >= atoms[atom_ix]:
+#                 p__ = atoms[atom_ix] - cp
+#                 p_ = p_ - p__
+#                 atom_ix += 1
+#                 cp += p__
+#
+#                 new_p.append(p__)
+#                 new_v.append(v_)
+#
+#             else:
+#                 cp += p_
+#                 new_p.append(p_)
+#                 new_v.append(v_)
+#                 p_ = 0
+#
+#     # print('------------------')
+#     # print(new_p)
+#     # print(new_v)
+#     return new_p, new_v
 
 
 def exact_pv():
@@ -217,27 +213,6 @@ def simple_sort():
         last = yV[i]
 
     return var_solution
-
-
-def s_to_alpha(s, p_atoms, var_values):
-
-    e_min = 0
-    ix = 0
-    alpha = 0
-    for v, p in zip(var_values, p_atoms):
-        if v >= s:
-            break
-        else:
-            ix += 1
-            e_min += p*v
-            alpha += p
-
-    if ix == 0:
-        return 0
-        # return var_values[0]
-    else:
-        return alpha
-        # return e_min + v*alpha
 
 
 def plot(*solutions, legend=True):

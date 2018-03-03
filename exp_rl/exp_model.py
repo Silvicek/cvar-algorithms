@@ -1,11 +1,11 @@
-""" Standard policy iteration methods stored here. 
+""" Standard RL methods stored here - VI, PI, Q-learning.
     Is not fully compatible with distributional setting.
 """
+
 from cliffwalker import *
-from constants import *
-import numpy as np
-from visual import show_fixed
+from plots.visual import show_fixed
 from util import q_to_v_argmax
+from util.constants import *
 
 
 # random policy: each action has the same probability
@@ -113,6 +113,7 @@ def q_learning(world):
     return Q
 
 # ==================== other
+
 
 def value_update(world, Q, P):
     """
