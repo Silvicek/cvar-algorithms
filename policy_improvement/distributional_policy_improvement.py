@@ -1,10 +1,23 @@
 import time
 
-from cliffwalker import *
 from plots.visual import PlotMachine
+
+from cliffwalker import *
 from policy_improvement.policies import VarBasedPolicy, NaiveCvarPolicy, GreedyPolicy
+from policy_improvement.random_variable import RandomVariable, MIN_VALUE, MAX_VALUE
 from util.cvar_computation import cvar_from_samples
-from util.random_variable import RandomVariable, MIN_VALUE, MAX_VALUE
+
+
+def expected_value(rv):
+    return rv.expected_value()
+
+
+def cvar(rv, alpha):
+    return rv.cvar(alpha)
+
+
+expected_value = np.vectorize(expected_value)
+cvar = np.vectorize(cvar)
 
 
 def policy_iteration(world):

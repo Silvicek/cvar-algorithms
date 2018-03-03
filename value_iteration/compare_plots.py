@@ -1,10 +1,12 @@
-""" Plots comparisons between tamar, sort, wasserstein. """
+"""
+Plots comparisons between tamar, sort, wasserstein.
+"""
 import matplotlib.pyplot as plt
 from pulp import *
 from util import cvar_computation
 import numpy as np
 
-
+# TODO: fix and move
 def wasserstein_lp():
     # 0) weight by transition probs
     p = np.outer(transition_p, atom_p).flatten()
@@ -116,13 +118,19 @@ def plot(*solutions, legend=True):
     ax.set_title('CVaR')
 
     # cvar_s
-    # ax = axs[3]
-    # for _, (p, sol) in solutions:
-    #     a = [s_to_alpha(s, p, sol) for s in s_range]
-    #     v = []
-    #     ax.plot(s_range, v)
-    # a = [s_to_alpha(s, atom_p, wm) for s in s_range]
-    # cv = []
+    ax = axs[3]
+    for _, (p, sol) in solutions:
+        a = [cvar_computation.s_to_alpha(s, p, sol) for s in s_range]
+        cv = [cvar_computation.single_cvar(p, sol, alpha) for alpha in a]
+        ax.plot(s_range, cv)
+
+    var_at_atoms = cvar_computation.v_vector(atoms, ex_p, ex_v)
+    a = np.array([cvar_computation.s_to_alpha(s, atom_p, var_at_atoms) for s in s_range])
+    cv = [cvar_computation.single_cvar(atom_p, ss, alpha) for alpha in a]
+    print('xxxxxxxxxxxxxxxxxxxx')
+    print(a)
+    print(cv)
+    ax.plot(s_range, cv)
 
     ax.set_title('CVaR(s)')
 
@@ -148,7 +156,6 @@ def plot(*solutions, legend=True):
 
 
 def var_to_cvar_approx(p, var, res=0.001):
-
     cvar = np.zeros(int(1/res))
 
     cp = 0.
@@ -245,6 +252,9 @@ if __name__ == '__main__':
     print('-----------------------')
 
     ss, _ = cvar_computation.v_yc_from_transitions_sort(atoms, transition_p, var_values)
+    print('XXXXXXXXXXXXXXXX')
+    print(ss)
+    print('XXXXXXXXXXXXXXXX')
     # wm = wasserstein_median()
     tam, _ = cvar_computation.v_yc_from_transitions_lp(atoms, transition_p, var_values)
 
@@ -254,7 +264,7 @@ if __name__ == '__main__':
     # print('wasserstein med:', wm)
     print('tamar:', tam)
 
-    s_range = np.arange(ex_v[0], ex_v[-1], 0.01)
+    s_range = np.arange(ex_v[0], ex_v[-1]+0.05, 0.01)
     # plt.plot(s_range, [cvar_s(s, ss, atom_p) for s in s_range])
     # plt.show()
     # quit()

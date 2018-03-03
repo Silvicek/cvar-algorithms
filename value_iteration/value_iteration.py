@@ -252,116 +252,14 @@ class MarkovState:
         return np.dot(self.atom_p, self.var)
 
     def compute_cvar_by_sort(self, transition_p, var_values):
-        """
-        CVaR computation from definition
-        :param transition_p:
-        :param var_values: (transitions, nb_atoms)
-        :param atoms: e.g. [0, 0.25, 0.5, 1]
-        :return:
-        """
-        # 0) weight by transition probs
-        p = np.outer(transition_p, self.atom_p).flatten()
-
-        # 1) sort
-        sortargs = var_values.flatten().argsort()
-        var_sorted = var_values.flatten()[sortargs]
-        p_sorted = p.flatten()[sortargs]
-
-        # 2) compute yV for each atom
-        yV = cvar_computation.yc_vector(self.atoms, p_sorted, var_sorted)
-
-        # 3) get vars from yV
-        var_solution = cvar_computation.yc_to_var(self.atoms, yV)
-
-        return var_solution, yV
+        return cvar_computation.v_yc_from_transitions_sort(self.atoms, transition_p, var_values)
 
     def compute_wasserstein(self, transition_p, var_values):
-        # 0) weight by transition probs
-        p = np.outer(transition_p, self.atom_p).flatten()
+        raise NotImplementedError("Waiting for transfer from lp_compare and fix.")
 
-        # 1) create quantile function
-        sortargs = var_values.flatten().argsort()
-        var_sorted = var_values.flatten()[sortargs]
-        p_sorted = p.flatten()[sortargs]
-        p_sorted, var_sorted = further_split(p_sorted, var_sorted, self.atoms)
-
-        # 2) weighted median minimizes wasserstein
-        cp = 0.
-        var_solution = []
-        atom_ix = 0
-        for ix, p_, v_ in zip(range(len(p_sorted)), p_sorted, var_sorted):
-
-            median_p = self.atoms[atom_ix] + self.atom_p[atom_ix] / 2
-
-            # if there is a step near the middle, use the midpoint
-            if abs(cp + p_ - median_p) < self.atom_p[atom_ix] / 100:
-                var_solution.append((v_ + var_sorted[ix + 1]) / 2)
-                atom_ix += 1
-            # if we get over median, this must be it's value
-            elif cp + p_ > median_p:
-                atom_ix += 1
-                var_solution.append(v_)
-
-            cp += p_
-
-            if atom_ix == self.nb_atoms:
-                break
-        return var_solution, np.array([self.y_cvar(alpha, var_solution) for alpha in self.atoms[1:]])
 
     def compute_cvar_by_lp(self, transition_p, var_values):
-        """
-        Create LP:
-        min Sum p_t * I
-
-        0 <= xi <= 1/alpha
-        Sum p_t * xi == 1
-
-        I = max{yV}
-
-        return yV[alpha]
-        """
-
-        def single_lp(alpha):
-
-            nb_transitions = len(transition_p)
-
-            Xi = [LpVariable('xi_' + str(i)) for i in range(nb_transitions)]
-            I = [LpVariable('I_' + str(i)) for i in range(nb_transitions)]
-
-            prob = LpProblem(name='tamar')
-
-            for xi in Xi:
-                prob.addConstraint(0 <= xi)
-                prob.addConstraint(xi <= 1. / alpha)
-            prob.addConstraint(sum([xi * p for xi, p in zip(Xi, transition_p)]) == 1)
-
-            for xi, i, var in zip(Xi, I, var_values):
-                last = 0.
-                f_params = []
-                for ix in range(self.nb_atoms):
-                    k = var[ix]
-                    last += k * self.atom_p[ix]
-                    q = last - k * self.atoms[ix + 1]
-                    prob.addConstraint(i >= k * xi * alpha + q)
-                    f_params.append((k, q))
-
-            # opt criterion
-            prob.setObjective(sum([i * p for i, p in zip(I, transition_p)]))
-
-            prob.solve()
-
-            return value(prob.objective)
-
-        yV = [single_lp(alpha) for alpha in self.atoms[1:]]
-        # extract vars:
-        last = 0.
-        new_var = np.zeros_like(yV)
-        for i in range(self.nb_atoms):
-            ddalpha = (yV[i] - last) / self.atom_p[i]
-            new_var[i] = ddalpha
-            last = yV[i]
-
-        return new_var, yV
+        cvar_computation.v_yc_from_transitions_lp(self.atoms, transition_p, var_values)
 
 
 def value_update(world, V):
