@@ -1,7 +1,7 @@
 from cliffwalker import *
 import time
 from policies import *
-from tamar import value_iteration
+from value_iteration import value_iteration
 from visual import PlotMachine
 
 

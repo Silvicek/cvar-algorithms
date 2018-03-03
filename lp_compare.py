@@ -1,18 +1,22 @@
+""" Separate file used for early tests and plots. """
+# TODO: delete/merge this file?
 import numpy as np
 from pulp import *
 import matplotlib.pyplot as plt
+from util import softmax
 # np.random.seed(4)
 
 # ==================== global settings
 
 # color cycle
 from cycler import cycler
-plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728'])))
+plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728', '#009900'])))
 
 # tex
 # plt.rc('text', usetex=True)
 # plt.rc('font', family='serif')
 # ====================
+
 
 def tamar_lp_single(alpha):
     """
@@ -215,50 +219,80 @@ def simple_sort():
     return var_solution
 
 
-def plot(exact, *solutions, legend=True):
+def s_to_alpha(s, p_atoms, var_values):
 
-    fig, ax = plt.subplots(1, 3, figsize=(18, 5))
+    e_min = 0
+    ix = 0
+    alpha = 0
+    for v, p in zip(var_values, p_atoms):
+        if v >= s:
+            break
+        else:
+            ix += 1
+            e_min += p*v
+            alpha += p
 
-    p, v = exact
+    if ix == 0:
+        return 0
+        # return var_values[0]
+    else:
+        return alpha
+        # return e_min + v*alpha
+
+
+def plot(*solutions, legend=True):
+    # solution = (name, (prob, var))
+
+    fig, axs = plt.subplots(2, 2, figsize=(18, 15))
+    axs = np.array(axs)
+    axs = axs.reshape(-1)
 
     # var
-    ax[0].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), where='pre')
-    for _, sol in solutions:
+    ax = axs[0]
+    for _, (p, sol) in solutions:
         sol = list(sol)
-        print(sol)
-        ax[0].step(atoms, sol + [sol[-1]], where='post')
-
-    ax[0].set_title('Quantile function')
+        print(atoms)
+        print(sol + [sol[-1]])
+        ax.step(np.insert(np.cumsum(p), 0, 0), sol + [sol[-1]], where='post')
+    ax.set_title('Quantile function')
 
     # yV
-    ax[1].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
-    for _, sol in solutions:
-        ax[1].plot(atoms, np.insert(np.cumsum(atom_p * sol), 0, 0), 'o-')
-
-    ax[1].set_title('$\\alpha$CVaR')
+    ax = axs[1]
+    for _, (p, sol) in solutions:
+        ax.plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * sol), 0, 0), 'o-')
+    ax.set_title('$\\alpha$CVaR')
 
     # cvar
-    p, v = var_to_cvar_approx(p, v)
-    ax[2].plot(p, v)
-    for _, sol in solutions:
-        p, v = var_to_cvar_approx(atom_p, sol)
-        ax[2].plot(p, v)
+    ax = axs[2]
+    for _, (p, sol) in solutions:
+        p, v = var_to_cvar_approx(p, sol)
+        ax.plot(p, v)
+    ax.set_title('CVaR')
 
-    ax[2].set_title('CVaR')
+    # cvar_s
+    ax = axs[3]
+    for _, (p, sol) in solutions:
+        a = [s_to_alpha(s, p, sol) for s in s_range]
+        v = []
+        ax.plot(s_range, v)
+    a = [s_to_alpha(s, atom_p, wm) for s in s_range]
+    cv = []
+
+    ax.set_title('CVaR(s)')
+
+    # =====================================================
 
     # legend
     if legend:
-        ax[0].legend(['Original'] + [name for name, _ in solutions])
-        ax[1].legend(['Original'] + [name for name, _ in solutions])
-        ax[2].legend(['Original'] + [name for name, _ in solutions])
+        for ax in axs:
+            ax.legend([name for name, _ in solutions])
 
     # hide last plot
     # ax[1][1].axis('off')
 
     # grid: on
-    ax[0].grid()
-    ax[1].grid()
-    ax[2].grid()
+    for ax in axs:
+        ax.grid()
 
     # hide upper x axis
     # plt.setp(ax[0].get_xticklabels(), visible=False)
@@ -321,8 +355,6 @@ def plot_process():
     plt.show()
 
 
-
-
 if __name__ == '__main__':
     # nb_atoms = 3
     # nb_transitions = 2
@@ -345,7 +377,6 @@ if __name__ == '__main__':
 
     var_values = np.array([[-0.5, 0.25, 0.5, 1],
                            [-3, -2, -1, 0]])
-
 
     # ================================================
 
@@ -371,14 +402,21 @@ if __name__ == '__main__':
     wm = wasserstein_median()
     tam = tamar_lp()
 
+    ex_p, ex_v = exact_pv()
+
     print('sort:', ss)
     print('wasserstein med:', wm)
     print('tamar:', tam)
 
+    s_range = np.arange(ex_v[0], ex_v[-1], 0.01)
+    # plt.plot(s_range, [cvar_s(s, ss, atom_p) for s in s_range])
+    # plt.show()
+    # quit()
 
 
     # plot(exact_pv(), ('sort', ss), ('wasserstein', wm), ('tamar', tam))
-    plot(exact_pv(), ('CVaR VI', tam))
+    plot(('Exact', (ex_p, ex_v)), ('CVaR VI', (atom_p, tam)), ('Wasserstein', (atom_p, wm)))
+    # plot(('Exact', (ex_p, ex_v)), ('CVaR VI', (atoms, tam)), ('Wasserstein', (atoms, wm)))
     # plot_process()
 
 

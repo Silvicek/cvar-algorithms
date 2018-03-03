@@ -1,4 +1,5 @@
 from collections import namedtuple
+import numpy as np
 
 
 # helper data structures:
@@ -87,6 +88,10 @@ class GridWorld:
 
         return transitions_full
 
+    def sample_transition(self, s, a):
+        trans = self.transitions(s)[a]
+        state_probs = [tran.prob for tran in trans]
+        return trans[np.random.choice(len(trans), p=state_probs)]
 
 
 

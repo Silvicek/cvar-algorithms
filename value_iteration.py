@@ -5,7 +5,7 @@ import copy
 from pulp import *
 
 
-def further_split(p, v, atoms):
+def further_split(p, v, atoms):  # TODO: remove this
     cp = 0.
     atom_ix = 1
     new_p = []
@@ -31,19 +31,14 @@ def further_split(p, v, atoms):
     return new_p, new_v
 
 
-def init(world, construct):
-    V = np.empty((world.height, world.width), dtype=object)
-    for ix in np.ndindex(V.shape):
-
-        V[ix] = construct()
-    return V
-
-
 class ValueFunction:
 
     def __init__(self, world):
         self.world = world
-        self.V = init(world, MarkovState)
+
+        self.V = np.empty((world.height, world.width), dtype=object)
+        for ix in np.ndindex(self.V.shape):
+            self.V[ix] = MarkovState()
 
     def update(self, y, x):
 
@@ -316,7 +311,7 @@ class MarkovState:
         sortargs = var_values.flatten().argsort()
         var_sorted = var_values.flatten()[sortargs]
         p_sorted = p.flatten()[sortargs]
-        p_sorted, var_sorted = further_split(p_sorted, var_sorted, self.atoms)  # TODO: cleaner
+        p_sorted, var_sorted = further_split(p_sorted, var_sorted, self.atoms)
 
         # 2) weighted median minimizes wasserstein
         cp = 0.

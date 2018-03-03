@@ -1,3 +1,4 @@
+# TODO: whats this for?
 from cliffwalker import *
 from constants import *
 import numpy as np
@@ -157,9 +158,6 @@ def value_iteration(world, nb_atoms):
         V = V_
         i += 1
     return V
-
-
-def
 
 
 
