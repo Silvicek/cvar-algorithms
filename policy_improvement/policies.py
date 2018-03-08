@@ -1,5 +1,4 @@
 import numpy as np
-from util.util import expected_value
 from util.constants import gamma
 
 class Policy:
@@ -33,6 +32,31 @@ class GreedyPolicy(Policy):
     def next_action(self, t):
         s = t.state
         return np.argmax(expected_value(self.Q[:, s.y, s.x]))
+
+
+class VarBasedQPolicy(Policy):
+    """ For Q-learning with CVaR. """
+    __name__ = 'VaR-based CVaR'
+
+    def __init__(self, Q, alpha):
+        self.Q = Q
+        self.alpha = alpha
+        self.s = None
+
+    def next_action(self, t):
+        x, r = t.state, t.reward
+
+        if self.s is None:
+            a = self.Q.next_action_alpha(x, self.alpha)
+            self.s = self.Q.var_alpha(x, a, self.alpha)
+        else:
+            self.s = (self.s - t.reward) / gamma
+            a = self.Q.next_action_s(x, self.alpha)
+
+        return a
+
+    def reset(self):
+        self.s = None
 
 
 class NaiveCvarPolicy(Policy):

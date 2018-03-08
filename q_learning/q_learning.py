@@ -116,18 +116,20 @@ class MarkovState:
         return cvar_computation.yc_to_var(atoms, self.yC)
 
 
-def q_learning(world, alpha, max_episodes=1e3, max_episode_length=1e3):
+def q_learning(world, alpha, max_episodes=1e3, max_episode_length=1e2):
     Q = ActionValueFunction(world)
 
     e = 0
     while e < max_episodes:
         x = world.initial_state
-        a = Q.next_action_alpha(x, alpha)
+        a = eps_greedy(Q.next_action_alpha(x, alpha), eps, world.ACTIONS)
         s = Q.var_alpha(x, a, alpha)
         i = 0
-        while x not in world.goal_states and i < max_episodes:
-            a = Q.next_action_s(x, s)
-            x_, r = world.sample_transition(x, a)
+        while x not in world.goal_states and i < max_episode_length:
+            a = eps_greedy(Q.next_action_s(x, s), eps, world.ACTIONS)
+            t = world.sample_transition(x, a)
+            x_, r = t.state, t.reward
+
             Q.update(x, a, x_, r)
 
             s = (s-r)/gamma
@@ -139,6 +141,12 @@ def q_learning(world, alpha, max_episodes=1e3, max_episode_length=1e3):
     return Q
 
 
+def eps_greedy(a, eps, action_space):
+    if np.random.random() < eps:
+        return np.random.choice(action_space)
+    else:
+        return a
+
 if __name__ == '__main__':
 
     # world = GridWorld(1, 3, random_action_p=0.3)
@@ -149,10 +157,6 @@ if __name__ == '__main__':
     # =============== PI setup
     alpha = 0.1
     Q = q_learning(world, alpha)
-    # V.V[3,0].plot()
-    # print(V.V[1,5].var)
-    # print(V.V[3,0].y_cvar(1.0))
-    # print(V.V[3,0].expected_value())
 
 
 
