@@ -131,13 +131,10 @@ def yc_vector(atoms, p_sorted, v_sorted):
     return y_cvar
 
 
-
-
 def yc_to_var(atoms, y_cvar):
     """ yCVaR -> distribution """
     last = 0.
     var = np.zeros_like(y_cvar)
-    print(var, '---->', atoms)
 
     for i in range(len(atoms)-1):
         p = atoms[i+1] - atoms[i]
@@ -233,6 +230,24 @@ def v_yc_from_transitions_sort(atoms, transition_p, var_values):
     var = yc_to_var(atoms, y_cvar)
 
     return var, y_cvar
+
+
+def extract_distribution(transitions, var_values, atom_p):
+    """
+
+    :param transitions:
+    :param var_values:
+    :param atom_p:
+    :return: sorted list of tuples (probability, index, var)
+    """
+    info = np.empty(var_values.shape, dtype=object)
+    for i_t, t in enumerate(transitions):
+        for i_v, v, p_ in zip(range(len(var_values[i_t])), var_values[i_t], atom_p):
+            info[i_t, i_v] = (p_ * t.prob, i_t, v)
+
+    info = list(info.flatten())
+    info.sort(key=lambda x: x[-1])
+    return info
 
 
 if __name__ == '__main__':

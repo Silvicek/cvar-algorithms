@@ -91,7 +91,7 @@ def exact_pv():
 def plot(*solutions, legend=True):
     # solution = (name, (prob, var))
 
-    fig, axs = plt.subplots(2, 2, figsize=(18, 15))
+    fig, axs = plt.subplots(2, 2, figsize=(8, 8))
     axs = np.array(axs)
     axs = axs.reshape(-1)
 
@@ -99,8 +99,6 @@ def plot(*solutions, legend=True):
     ax = axs[0]
     for _, (p, sol) in solutions:
         sol = list(sol)
-        print(atoms)
-        print(sol + [sol[-1]])
         ax.step(np.insert(np.cumsum(p), 0, 0), sol + [sol[-1]], where='post')
     ax.set_title('Quantile function')
 
@@ -118,21 +116,17 @@ def plot(*solutions, legend=True):
     ax.set_title('CVaR')
 
     # cvar_s
-    ax = axs[3]
-    for _, (p, sol) in solutions:
-        a = [cvar_computation.s_to_alpha(s, p, sol) for s in s_range]
-        cv = [cvar_computation.single_cvar(p, sol, alpha) for alpha in a]
-        ax.plot(s_range, cv)
-
+    # ax = axs[3]
+    # for _, (p, sol) in solutions:
+    #     a = [cvar_computation.s_to_alpha(s, p, sol) for s in s_range]
+    #     cv = [cvar_computation.single_cvar(p, sol, alpha) for alpha in a]
+    #     ax.plot(s_range, cv)
+    #
     var_at_atoms = cvar_computation.v_vector(atoms, ex_p, ex_v)
     a = np.array([cvar_computation.s_to_alpha(s, atom_p, var_at_atoms) for s in s_range])
     cv = [cvar_computation.single_cvar(atom_p, ss, alpha) for alpha in a]
-    print('xxxxxxxxxxxxxxxxxxxx')
-    print(a)
-    print(cv)
     ax.plot(s_range, cv)
-
-    ax.set_title('CVaR(s)')
+    # ax.set_title('CVaR(s)')
 
     # =====================================================
 
@@ -252,9 +246,6 @@ if __name__ == '__main__':
     print('-----------------------')
 
     ss, _ = cvar_computation.v_yc_from_transitions_sort(atoms, transition_p, var_values)
-    print('XXXXXXXXXXXXXXXX')
-    print(ss)
-    print('XXXXXXXXXXXXXXXX')
     # wm = wasserstein_median()
     tam, _ = cvar_computation.v_yc_from_transitions_lp(atoms, transition_p, var_values)
 
