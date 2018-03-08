@@ -52,7 +52,7 @@ class VarBasedQPolicy(Policy):
         else:
             self.s = (self.s - t.reward) / gamma
             a = self.Q.next_action_s(x, self.alpha)
-
+        print('s=', self.s)
         return a
 
     def reset(self):

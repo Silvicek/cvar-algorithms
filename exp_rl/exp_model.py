@@ -51,7 +51,8 @@ def q_learning(world):
 
     iter = 0
     while True:
-
+        if iter % 10 == 0:
+            print(iter)
         # ==========================
         s = world.initial_state
 
