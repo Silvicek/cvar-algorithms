@@ -7,7 +7,7 @@ from plots.grid_plot_machine import show_fixed
 
 
 # atom spacing
-NB_ATOMS = 4
+NB_ATOMS = 20
 LOG = False  # atoms are log-spaced
 SPACING = 2
 
@@ -16,7 +16,7 @@ atom_p = atoms[1:] - atoms[:-1]  # [0.25, 0.25, 0.5]
 
 # learning parameters
 eps = 0.1
-beta = 0.1
+beta = 0.4/NB_ATOMS
 
 
 class ActionValueFunction:
@@ -28,26 +28,64 @@ class ActionValueFunction:
         for ix in np.ndindex(self.Q.shape):
             self.Q[ix] = MarkovState()
 
-    def update(self, x, a, x_, r):
-
+    def update(self, x, a, x_, r, id=None):
         # 'sampling'
         V_x = self.sup_q(x_)
 
         # TODO: deal with 0, 1
-
         for v in V_x:
             for i, atom in enumerate(atoms[1:]):
                 V = self.Q[x.y, x.x, a].V[i]
                 yC = self.Q[x.y, x.x, a].yC[i]
+
                 if self.Q[x.y, x.x, a].V[i] >= r + gamma*v:
-                    self.Q[x.y, x.x, a].V[i] += beta*(1-1/atom)
+                    update = beta*(1-1/atom)
                 else:
-                    self.Q[x.y, x.x, a].V[i] += beta
+                    update = beta
 
-                self.Q[x.y, x.x, a].yC[i] = (1 - beta) * yC + beta * (atom*V + min(0, r+gamma*v - V))
+                if i == 0:
+                    self.Q[x.y, x.x, a].V[i] = min(self.Q[x.y, x.x, a].V[i] + update, self.Q[x.y, x.x, a].V[i+1])
+                elif i == (len(atoms)-2):
+                    self.Q[x.y, x.x, a].V[i] = max(self.Q[x.y, x.x, a].V[i] + update, self.Q[x.y, x.x, a].V[i-1])
+                else:
+                    self.Q[x.y, x.x, a].V[i] = min(max(self.Q[x.y, x.x, a].V[i] + update, self.Q[x.y, x.x, a].V[i-1]),
+                                                   self.Q[x.y, x.x, a].V[i+1])
+
+                yCn = (1 - beta) * yC + beta * (atom*V + min(0, r+gamma*v - V))
+                if i == 0:
+                    self.Q[x.y, x.x, a].yC[i] = yCn
+                elif i == 1:
+                    ddy = self.Q[x.y, x.x, a].yC[0] / atom_p[0]  # TODO: check
+                    self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i - 1] + ddy * atom_p[i])
+                else:
+                    ddy = (self.Q[x.y, x.x, a].yC[i-1] - self.Q[x.y, x.x, a].yC[i-2]) / atom_p[i-1] # TODO: check
+                    self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i-1] + ddy*atom_p[i])
 
 
-        assert self.Q[x.y, x.x, a].V[0] <= self.Q[x.y, x.x, a].V[-1]
+        # if np.any(self.Q[x.y, x.x, a].V > 0):
+        #     print("bizzare values", id)
+        #     quit()
+
+        # if not is_ordered(V_x):
+        #     print("not ordered", id)
+        #     quit()
+        # if not is_convex(self.Q[x.y, x.x, a].yC):
+        #     print("not convex", id)
+        #     import matplotlib.pyplot as plt
+        #     plt.plot(self.Q[x.y, x.x, a].yC, "-o")
+        #     plt.show()
+        #     quit()
+
+        # if not is_ordered(V_x):
+        #     print("V not ordered", id)
+        #     import matplotlib.pyplot as plt
+        #     for a_ in self.world.ACTIONS:
+        #         plt.plot(self.Q[x_.y, x_.x, a_].yC)
+        #         print(is_convex(self.Q[x_.y, x_.x, a_].yC))
+        #     plt.show()
+        #     quit()
+
+
 
     def next_action_alpha(self, x, alpha):
         yc = [self.Q[x.y, x.x, a].yc_alpha(alpha) for a in self.world.ACTIONS]
@@ -75,6 +113,18 @@ class ActionValueFunction:
         return self.Q[x.x, x.y, a].V[i-1]
 
 
+def is_ordered(v):
+    for i in range(1, len(v)):
+        if v[i-1] - v[i] > 1e-6:
+            return False
+    return True
+
+
+def is_convex(yc):
+    assert not LOG
+    return is_ordered(cvar_computation.yc_to_var(atoms, yc))
+
+
 class MarkovState:
 
     def __init__(self):
@@ -98,8 +148,7 @@ class MarkovState:
             plt.show()
 
     def expected_value(self):
-        var = self.dist_from_yc()
-        return np.dot(atom_p, var)
+        return self.yC[-1]
 
     def yc_alpha(self, alpha):
         """ linear interpolation: yC(alpha)"""
@@ -127,7 +176,7 @@ class MarkovState:
         return cvar_computation.yc_to_var(atoms, self.yC)
 
 
-def q_learning(world, alpha, max_episodes=1e3, max_episode_length=1e2):
+def q_learning(world, alpha, max_episodes=2e3, max_episode_length=1e2):
     Q = ActionValueFunction(world)
 
     e = 0
@@ -143,7 +192,7 @@ def q_learning(world, alpha, max_episodes=1e3, max_episode_length=1e2):
             t = world.sample_transition(x, a)
             x_, r = t.state, t.reward
 
-            Q.update(x, a, x_, r)
+            Q.update(x, a, x_, r, (e, i))
 
             s = (s-r)/gamma
             x = x_
@@ -172,7 +221,7 @@ if __name__ == '__main__':
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== PI setup
-    alpha = 0.1
+    alpha = 0.9
     Q = q_learning(world, alpha)
 
     show_fixed(world, q_to_v_exp(Q), np.argmax(Q, axis=0))
