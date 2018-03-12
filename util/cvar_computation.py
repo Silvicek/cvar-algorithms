@@ -123,12 +123,20 @@ def yc_vector(atoms, p_sorted, v_sorted):
             y_cvar[atom_ix-1] = ycv
             atom_ix += 1
             p_ -= p_difference
+            if p_ == 0:
+                ix += 1
         else:
             ycv += p_ * v_
             p += p_
             ix += 1
             p_ = 0
+
+    # numerical errors
+    if p != 1:
+        y_cvar[-1] = ycv
+
     assert abs(p-1) < 1e-5
+    assert abs(y_cvar[-1] - np.dot(p_sorted, v_sorted)) < 1e-5
 
     return y_cvar
 
