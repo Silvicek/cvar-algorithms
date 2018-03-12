@@ -39,12 +39,10 @@ class ValueFunction:
 
             if TAMAR_LP:
                 v, yv = self.V[y, x].compute_cvar_by_lp([t_.prob for t_ in t], var_values)
+            elif WASSERSTEIN:
+                v, yv = self.V[y, x].compute_wasserstein([t_.prob for t_ in t], var_values)
             else:
-
-                if WASSERSTEIN:
-                    v, yv = self.V[y, x].compute_wasserstein([t_.prob for t_ in t], var_values)
-                else:
-                    v, yv = self.V[y, x].compute_cvar_by_sort([t_.prob for t_ in t], var_values)
+                v, yv = self.V[y, x].compute_cvar_by_sort([t_.prob for t_ in t], var_values)
             vars.append(v)
             cvars.append(yv)
 
@@ -202,51 +200,23 @@ class MarkovState:
         self.atoms = spaced_atoms(self.nb_atoms, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
         self.atom_p = self.atoms[1:] - self.atoms[:-1]  # [0.25, 0.25, 0.5]
 
-    def plot(self, show=True):
+    def plot(self, show=True, figax=None):
         import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(1, 2)
+        if figax is None:
+            fig, ax = plt.subplots(1, 2)
+        else:
+            fig, ax = figax
 
         # var
         ax[0].step(self.atoms, list(self.var) + [self.var[-1]], 'o-', where='post')
 
         # yV
-        # ax[1].plot(self.atoms, np.insert(np.cumsum(atom_p * sol), 0, 0), 'o-')
+        ax[1].plot(self.atoms, np.insert(cvar_computation.var_to_yc(self.atom_p, self.var), 0, 0), 'o-')
         if show:
             plt.show()
 
-    def y_cvar(self, alpha, var=None):
-
-        if var is None:
-            var = self.var
-
-        if alpha == 0:
-            return min(var)
-
-        p = 0.
-        cv = 0.
-        for p_, v_ in zip(self.atom_p, var):
-            if p + p_ >= alpha:
-                cv += (alpha-p) * v_
-                break
-            else:
-                cv += p_ * v_
-                p += p_
-
-        return cv
-
-    def y_var(self, var, var_values=None):
-
-        if var_values is None:
-            var_values = self.var
-
-        cv = 0.
-        for p_, v_ in zip(self.atom_p, var_values):
-            if v_ > var:  # TODO: solve for discrete distributions
-                break
-            else:
-                cv += p_ * v_
-
-        return cv
+    def y_cvar(self, alpha):
+        return cvar_computation.single_cvar(self.atom_p, self.var, alpha)
 
     def expected_value(self):
         return np.dot(self.atom_p, self.var)
@@ -256,7 +226,6 @@ class MarkovState:
 
     def compute_wasserstein(self, transition_p, var_values):
         raise NotImplementedError("Waiting for transfer from lp_compare and fix.")
-
 
     def compute_cvar_by_lp(self, transition_p, var_values):
         cvar_computation.v_yc_from_transitions_lp(self.atoms, transition_p, var_values)
@@ -294,8 +263,8 @@ def value_iteration(world, max_iters=1e3):
     i = 0
     while True:
         V_ = value_update(world, V)
-        # if i % 10 == 0:
-        #     V_.V[0, 5].plot()
+        if i % 10 == 0:
+            V_.V[2, 3].plot()
         if (converged(V, V_, world) and i != 0) or i > max_iters:
             print("value fully learned after %d iterations" % (i,))
             break
@@ -309,22 +278,22 @@ def value_iteration(world, max_iters=1e3):
 
 # TODO: control error by adding atoms
 # TODO: smart convergence  ---  the cvar converges, not necessarily the distributions (?)
-# TODO: V -> Q
 
 if __name__ == '__main__':
-
-    # world = GridWorld(1, 3, random_action_p=0.3)
-    world = GridWorld(4, 6, random_action_p=0.1)
+    import pickle
+    from plots.grid_plot_machine import InteractivePlotMachine
+    world = GridWorld(10, 15, random_action_p=0.1)
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
-    # =============== PI setup
-    alpha = 0.1
+    # =============== VI setup
     V = value_iteration(world, max_iters=100)
-    # V.V[3,0].plot()
-    # print(V.V[1,5].var)
-    # print(V.V[3,0].y_cvar(1.0))
-    # print(V.V[3,0].expected_value())
+    # pickle.dump(V, open('../files/vi.pkl', mode='wb'))
+    # V = pickle.load(open('../files/vi.pkl', 'rb'))
+
+    pm = InteractivePlotMachine(world, V)
+    pm.show()
+
 
 
 

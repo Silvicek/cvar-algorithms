@@ -9,7 +9,7 @@ State = namedtuple('State', ['y', 'x'])
 # encapsulates a transition to state and its probability
 Transition = namedtuple('Transition', ['state', 'prob', 'reward'])  # transition to state with probability prob
 
-# TODO: move gamma here?
+
 class GridWorld:
     """ Cliffwalker. """
 
@@ -18,7 +18,7 @@ class GridWorld:
     ACTION_UP = 2
     ACTION_DOWN = 3
     ACTIONS = [ACTION_LEFT, ACTION_RIGHT, ACTION_UP, ACTION_DOWN]
-    FALL_REWARD = -10
+    FALL_REWARD = -100
 
     def __init__(self, height, width, random_action_p=0.1, risky_p_loss=0.15):
 
@@ -32,10 +32,18 @@ class GridWorld:
         self.initial_state = State(self.height - 1, 0)
         self.goal_states = {State(self.height - 1, self.width - 1)}
 
-        if height == 1:
-            self.cliff_states = {}
-        else:
-            self.cliff_states = {State(self.height - 1, i) for i in range(1, self.width - 1)}
+
+        self.cliff_states = set()
+        if height != 1:
+            for x in range(width):
+                for y in range(height):
+                    s = State(y, x)
+                    p_cliff = 0.2 * (y / height) * bool(x != 0 and y != 0 and x < width-1)
+                    if s == self.initial_state or s in self.goal_states:
+                        continue
+
+                    if np.random.random() < p_cliff:
+                        self.cliff_states.add(s)
 
     def states(self):
         """ iterator over all possible states """
@@ -80,7 +88,8 @@ class GridWorld:
                 s_ = self.target_state(s, a_)
                 if s_ in self.cliff_states:
                     r = self.FALL_REWARD
-                    s_ = self.initial_state
+                    # s_ = self.initial_state
+                    s_ = next(iter(self.goal_states))
                 else:
                     r = -1
                 p = 1.0 - self.random_action_p if a_ == a else self.random_action_p / 3

@@ -1,7 +1,8 @@
 import numpy as np
 
-np.random.seed(1337)
+np.random.seed(9)
 np.set_printoptions(3)
+print("seed")
 
 gamma = 0.95
 

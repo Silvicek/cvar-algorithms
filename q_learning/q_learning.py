@@ -7,7 +7,7 @@ from plots.grid_plot_machine import show_fixed
 
 
 # atom spacing
-NB_ATOMS = 20
+NB_ATOMS = 10
 LOG = False  # atoms are log-spaced
 SPACING = 2
 
@@ -60,32 +60,6 @@ class ActionValueFunction:
                 else:
                     ddy = (self.Q[x.y, x.x, a].yC[i-1] - self.Q[x.y, x.x, a].yC[i-2]) / atom_p[i-1] # TODO: check
                     self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i-1] + ddy*atom_p[i])
-
-
-        # if np.any(self.Q[x.y, x.x, a].V > 0):
-        #     print("bizzare values", id)
-        #     quit()
-
-        # if not is_ordered(V_x):
-        #     print("not ordered", id)
-        #     quit()
-        # if not is_convex(self.Q[x.y, x.x, a].yC):
-        #     print("not convex", id)
-        #     import matplotlib.pyplot as plt
-        #     plt.plot(self.Q[x.y, x.x, a].yC, "-o")
-        #     plt.show()
-        #     quit()
-
-        # if not is_ordered(V_x):
-        #     print("V not ordered", id)
-        #     import matplotlib.pyplot as plt
-        #     for a_ in self.world.ACTIONS:
-        #         plt.plot(self.Q[x_.y, x_.x, a_].yC)
-        #         print(is_convex(self.Q[x_.y, x_.x, a_].yC))
-        #     plt.show()
-        #     quit()
-
-
 
     def next_action_alpha(self, x, alpha):
         yc = [self.Q[x.y, x.x, a].yc_alpha(alpha) for a in self.world.ACTIONS]

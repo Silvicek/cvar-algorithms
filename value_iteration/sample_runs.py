@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
     # =============== VI setup
     V = value_iteration(world, max_iters=100)
-    alpha = 0.25
+    alpha = 0.1
     print(V.V[3, 0].y_cvar(alpha)/alpha)
 
     var_policy = TamarVarBasedPolicy(V, alpha)

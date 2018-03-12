@@ -82,7 +82,9 @@ def v_vector(atoms, p_sorted, v_sorted):
 
 def single_cvar(p_sorted, v_sorted, alpha):
     # TODO: check
-    if alpha > 0.999:
+    if alpha == 0:
+        return v_sorted[0]
+    if alpha > 0.99999:
         return np.dot(p_sorted, v_sorted)
     p = 0.
     i = 0
@@ -145,8 +147,13 @@ def yc_to_var(atoms, y_cvar):
     return var
 
 
-def var_to_yc(atoms, var):
-    pass
+def var_to_yc(p_sorted, v_sorted):
+    yc = np.zeros_like(p_sorted)
+    yc_last = 0
+    for i in range(len(yc)):
+        yc[i] = yc_last + p_sorted[i]*v_sorted[i]
+        yc_last = yc[i]
+    return yc
 
 
 def tamar_lp_single(atoms, transition_p, var_values, alpha):

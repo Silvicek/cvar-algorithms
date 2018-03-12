@@ -47,7 +47,7 @@ def q_learning(world):
     eps = 0.5
 
     max_iters = 100
-    max_episodes = 3000
+    max_episodes = 5000
 
     iter = 0
     while True:
@@ -76,7 +76,7 @@ def q_learning(world):
             s = s_
 
         # update learning parameters
-        if iter > 0.2*max_episodes:
+        if iter > 0.3*max_episodes:
             eps *= 0.995
         print("{}: eps={}".format(iter, eps))
 
@@ -169,7 +169,7 @@ def q_to_v_argmax(world, Q):
 
 if __name__ == '__main__':
 
-    world = GridWorld(4, 6)
+    world = GridWorld(10, 15)
 
     # Q = policy_iteration(world)
     # Q = value_iteration(world)
