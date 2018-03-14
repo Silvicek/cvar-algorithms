@@ -1,7 +1,7 @@
 from util.runs import epoch
 from cliffwalker import *
 from plots.grid_plot_machine import PlotMachine
-from policy_improvement.policies import VarBasedQPolicy
+from policy_improvement.policies import VarBasedQPolicy, TamarPolicy
 import q_learning
 
 import pickle
@@ -12,14 +12,15 @@ if __name__ == '__main__':
     world = GridWorld(4, 6, random_action_p=0.1)
     alpha = 0.1
     # =============== VI setup
-    # Q = q_learning.q_learning(world, alpha, max_episodes=4e3)
+    Q = q_learning.q_learning(world, alpha, max_episodes=5000)
     # pickle.dump(Q, open("../files/q.pkl", 'wb'))
 
-    Q = pickle.load(open("../files/q.pkl", 'rb'))
+    # Q = pickle.load(open("../files/q.pkl", 'rb'))
 
-    Q.Q[0,3,2].plot()
+    # Q.Q[0,3,2].plot()
 
     policy = VarBasedQPolicy(Q, alpha)
+    # policy = TamarPolicy(V, alpha)
 
     # =============== plot dynamic
     V_visual = q_learning.q_to_v_exp(Q)

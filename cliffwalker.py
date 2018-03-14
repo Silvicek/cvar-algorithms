@@ -19,6 +19,7 @@ class GridWorld:
     ACTION_DOWN = 3
     ACTIONS = [ACTION_LEFT, ACTION_RIGHT, ACTION_UP, ACTION_DOWN]
     FALL_REWARD = -100
+    ACTION_NAMES = {ACTION_LEFT: "Left", ACTION_RIGHT: "Right", ACTION_UP: "Up", ACTION_DOWN: "Down"}
 
     def __init__(self, height, width, random_action_p=0.1, risky_p_loss=0.15):
 

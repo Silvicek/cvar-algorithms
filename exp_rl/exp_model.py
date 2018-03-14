@@ -40,19 +40,17 @@ def policy_iteration(world):
     return Q
 
 
-def q_learning(world):
+def q_learning(world, max_episodes=1e3, max_iters=100):
     Q = np.zeros((len(world.ACTIONS), world.height, world.width))
 
     beta = 0.1  # learning rate
     eps = 0.5
 
-    max_iters = 100
-    max_episodes = 5000
-
     iter = 0
     while True:
-        if iter % 10 == 0:
-            print(iter)
+        if iter % 100 == 0:
+            beta = 1/max(1, iter/200)
+            print("{}: beta={}".format(iter, beta))
         # ==========================
         s = world.initial_state
 
@@ -76,9 +74,10 @@ def q_learning(world):
             s = s_
 
         # update learning parameters
-        if iter > 0.3*max_episodes:
-            eps *= 0.995
-        print("{}: eps={}".format(iter, eps))
+        # if iter > 0.3*max_episodes:
+        # eps = 1/(iter + 1)
+        # print("{}: eps={}".format(iter, eps))
+
 
         iter += 1
 
@@ -158,6 +157,7 @@ def eval_fixed_policy(world, P):
         i += 1
     return Q
 
+
 def q_to_v_argmax(world, Q):
     """ Converts Q function to V by choosing the best action. """
     Vnew = np.zeros((world.height, world.width))
@@ -169,10 +169,10 @@ def q_to_v_argmax(world, Q):
 
 if __name__ == '__main__':
 
-    world = GridWorld(10, 15)
+    world = GridWorld(4, 6, random_action_p=0.1)
 
     # Q = policy_iteration(world)
-    # Q = value_iteration(world)
-    Q = q_learning(world)
+    Q = value_iteration(world)
+    # Q = q_learning(world, max_episodes=50000)
 
     show_fixed(world, q_to_v_argmax(world, Q), np.argmax(Q, axis=0))

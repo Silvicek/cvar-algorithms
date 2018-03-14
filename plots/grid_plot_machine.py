@@ -50,18 +50,26 @@ class PlotMachine:
 # TODO: unify imshow
 class InteractivePlotMachine:
 
-    def __init__(self, world, V):
+    def __init__(self, world, V, action_value=False):
+        self.world = world
         self.V = V
-        img = np.array([V.V[ix].expected_value() for ix in np.ndindex(V.V.shape)]).reshape(V.V.shape)
-        print(img.shape)
+        if action_value:
+            img = np.max(np.array([V.Q[ix].expected_value() for ix in np.ndindex(V.Q.shape)]).reshape(V.Q.shape), axis=-1)
+            print(img.shape)
 
-        self.fig, self.ax = grid_plot(world, img)
-        self.fig.canvas.mpl_connect('button_press_event', self.handle_click)
+            self.fig, self.ax = grid_plot(world, img)
+            self.fig.canvas.mpl_connect('button_press_event', self.handle_click_q)
+        else:
+            img = np.array([V.V[ix].expected_value() for ix in np.ndindex(V.V.shape)]).reshape(V.V.shape)
+            print(img.shape)
+
+            self.fig, self.ax = grid_plot(world, img)
+            self.fig.canvas.mpl_connect('button_press_event', self.handle_click_v)
 
         self.state_fig = None
         self.state_ax = None
 
-    def handle_click(self, event):
+    def handle_click_v(self, event):
 
         if event.xdata is None:
             return
@@ -76,6 +84,24 @@ class InteractivePlotMachine:
 
         self.V.V[y, x].plot(figax=(self.state_fig, self.state_ax))
 
+    def handle_click_q(self, event):
+        if event.xdata is None:
+            return
+        x, y = self._canvas_to_grid(event.xdata, event.ydata)
+
+        if self.state_fig is None:
+            self.state_fig, self.state_ax = plt.subplots(1, 3)
+
+        # clear axes
+        for ax in self.state_ax:
+            ax.clear()
+
+        for a in self.world.ACTIONS:
+            self.V.Q[y, x, a].plot(ax=self.state_ax, show=False)
+        ax.legend([self.world.ACTION_NAMES[a] for a in self.world.ACTIONS])
+        self.state_fig.show()
+
+
     def _canvas_to_grid(self, xd, yd):
         offset = -0.5
         cell_length = 1
@@ -83,10 +109,7 @@ class InteractivePlotMachine:
         y = int((yd - offset) / cell_length)
         return x, y
 
-
-
     def show(self):
-
         plt.show()
 
 

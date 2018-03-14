@@ -3,11 +3,11 @@ from util.constants import gamma
 from util.util import spaced_atoms
 from util import cvar_computation
 import numpy as np
-from plots.grid_plot_machine import show_fixed
+from plots.grid_plot_machine import InteractivePlotMachine
 
 
 # atom spacing
-NB_ATOMS = 10
+NB_ATOMS = 4
 LOG = False  # atoms are log-spaced
 SPACING = 2
 
@@ -15,7 +15,7 @@ atoms = spaced_atoms(NB_ATOMS, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
 atom_p = atoms[1:] - atoms[:-1]  # [0.25, 0.25, 0.5]
 
 # learning parameters
-eps = 0.1
+eps = 0.5
 beta = 0.4/NB_ATOMS
 
 
@@ -51,7 +51,7 @@ class ActionValueFunction:
                     self.Q[x.y, x.x, a].V[i] = min(max(self.Q[x.y, x.x, a].V[i] + update, self.Q[x.y, x.x, a].V[i-1]),
                                                    self.Q[x.y, x.x, a].V[i+1])
 
-                yCn = (1 - beta) * yC + beta * (atom*V + min(0, r+gamma*v - V))
+                yCn = (1 - beta/atom) * yC + beta/atom * (atom*V + min(0, r+gamma*v - V))
                 if i == 0:
                     self.Q[x.y, x.x, a].yC[i] = yCn
                 elif i == 1:
@@ -105,9 +105,10 @@ class MarkovState:
         self.V = np.zeros(NB_ATOMS)
         self.yC = np.zeros(NB_ATOMS)
 
-    def plot(self, show=True):
+    def plot(self, show=True, ax=None):
         import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(1, 3)
+        if ax is None:
+            _, ax = plt.subplots(1, 3)
 
         # var
         ax[0].step(atoms, list(self.V) + [self.V[-1]], 'o-', where='post')
@@ -119,6 +120,7 @@ class MarkovState:
         v = self.dist_from_yc()
         ax[2].step(atoms, list(v) + [v[-1]], 'o-', where='post')
         if show:
+
             plt.show()
 
     def expected_value(self):
@@ -195,10 +197,15 @@ if __name__ == '__main__':
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== PI setup
-    alpha = 0.9
-    Q = q_learning(world, alpha)
+    alpha = 0.1
+    Q = q_learning(world, alpha, max_episodes=4e3)
+    import pickle
+    pickle.dump(Q, open("../files/q.pkl", 'wb'))
 
-    show_fixed(world, q_to_v_exp(Q), np.argmax(Q, axis=0))
+    Q = pickle.load(open("../files/q.pkl", 'rb'))
+
+    pm = InteractivePlotMachine(world, Q, action_value=True)
+    pm.show()
 
 
 

@@ -7,9 +7,9 @@ import copy
 from pulp import *
 
 # atom spacing
-NB_ATOMS = 10
-LOG = True  # atoms are log-spaced
-SPACING = 1.5
+NB_ATOMS = 4
+LOG = False  # atoms are log-spaced
+SPACING = 2
 
 # use LP when computing CVaRs
 TAMAR_LP = False
