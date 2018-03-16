@@ -1,15 +1,9 @@
 from cliffwalker import *
-from util.constants import gamma
-from util.util import spaced_atoms
+from util.constants import *
 from util import cvar_computation
 import numpy as np
 import copy
 from pulp import *
-
-# atom spacing
-NB_ATOMS = 4
-LOG = False  # atoms are log-spaced
-SPACING = 2
 
 # use LP when computing CVaRs
 TAMAR_LP = False
@@ -294,7 +288,7 @@ if __name__ == '__main__':
     import pickle
     from plots.grid_plot_machine import InteractivePlotMachine
     # world = GridWorld(10, 15, random_action_p=0.1)
-    world = GridWorld(4, 6, random_action_p=0.1)
+    world = GridWorld(4, 6, random_action_p=.3)
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 

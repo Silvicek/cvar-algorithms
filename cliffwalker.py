@@ -94,7 +94,8 @@ class GridWorld:
                 else:
                     r = -1
                 p = 1.0 - self.random_action_p if a_ == a else self.random_action_p / 3
-                transitions_actions.append(Transition(s_, p, r))
+                if p != 0:
+                    transitions_actions.append(Transition(s_, p, r))
             transitions_full.append(transitions_actions)
 
         return transitions_full

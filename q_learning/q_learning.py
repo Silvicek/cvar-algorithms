@@ -1,34 +1,21 @@
 from cliffwalker import *
-from util.constants import gamma
-from util.util import spaced_atoms
+from util.constants import *
 from util import cvar_computation
 import numpy as np
 from plots.grid_plot_machine import InteractivePlotMachine
-
-
-# atom spacing
-NB_ATOMS = 4
-LOG = False  # atoms are log-spaced
-SPACING = 2
-
-atoms = spaced_atoms(NB_ATOMS, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
-atom_p = atoms[1:] - atoms[:-1]  # [0.25, 0.25, 0.5]
-
-# learning parameters
-eps = 0.5
-beta = 0.4/NB_ATOMS
 
 
 class ActionValueFunction:
 
     def __init__(self, world):
         self.world = world
+        self.atoms = atoms
 
         self.Q = np.empty((world.height, world.width, len(world.ACTIONS)), dtype=object)
         for ix in np.ndindex(self.Q.shape):
             self.Q[ix] = MarkovState()
 
-    def update(self, x, a, x_, r, id=None):
+    def update_safe(self, x, a, x_, r, beta, id=None):
         # 'sampling'
         V_x = self.sup_q(x_)
 
@@ -38,11 +25,16 @@ class ActionValueFunction:
                 V = self.Q[x.y, x.x, a].V[i]
                 yC = self.Q[x.y, x.x, a].yC[i]
 
-                if self.Q[x.y, x.x, a].V[i] >= r + gamma*v:
-                    update = beta*(1-1/atom)
-                else:
-                    update = beta
+                # learning rates
+                lr_v = beta * atom_p[i]  # p mirrors magnitude (for log-spaced)
+                lr_yc = beta * atom_p[i] / atom  # /atom for using the same beta when estimating cvar (not yc)
 
+                if self.Q[x.y, x.x, a].V[i] >= r + gamma*v:
+                    update = lr_v*(1-1/atom)
+                else:
+                    update = lr_v
+
+                # UPDATE VaR
                 if i == 0:
                     self.Q[x.y, x.x, a].V[i] = min(self.Q[x.y, x.x, a].V[i] + update, self.Q[x.y, x.x, a].V[i+1])
                 elif i == (len(atoms)-2):
@@ -51,7 +43,8 @@ class ActionValueFunction:
                     self.Q[x.y, x.x, a].V[i] = min(max(self.Q[x.y, x.x, a].V[i] + update, self.Q[x.y, x.x, a].V[i-1]),
                                                    self.Q[x.y, x.x, a].V[i+1])
 
-                yCn = (1 - beta/atom) * yC + beta/atom * (atom*V + min(0, r+gamma*v - V))
+                # UPDATE CVaR
+                yCn = (1 - lr_yc) * yC + lr_yc * (atom*V + min(0, r+gamma*v - V))
                 if i == 0:
                     self.Q[x.y, x.x, a].yC[i] = yCn
                 elif i == 1:
@@ -61,6 +54,33 @@ class ActionValueFunction:
                     ddy = (self.Q[x.y, x.x, a].yC[i-1] - self.Q[x.y, x.x, a].yC[i-2]) / atom_p[i-1] # TODO: check
                     self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i-1] + ddy*atom_p[i])
 
+    def update(self, x, a, x_, r, beta, id=None):
+        # 'sampling'
+        V_x = self.sup_q(x_)
+
+        # TODO: deal with 0, 1
+        for iv, v in enumerate(V_x):
+            for i, atom in enumerate(atoms[1:]):
+                V = self.Q[x.y, x.x, a].V[i]
+                yC = self.Q[x.y, x.x, a].yC[i]
+
+                # learning rates
+                lr_v = beta * atom_p[iv]  # p mirrors magnitude (for log-spaced)
+                # lr_yc = beta * atom_p[iv] / atom  # /atom for using the same beta when estimating cvar (not yc)
+                lr_yc = beta * atom_p[iv]
+
+                if self.Q[x.y, x.x, a].V[i] >= r + gamma * v:
+                    update = lr_v * (1 - 1 / atom)
+                else:
+                    update = lr_v
+
+                # UPDATE VaR
+                self.Q[x.y, x.x, a].V[i] += update
+
+                # UPDATE CVaR
+                yCn = (1 - lr_yc) * yC + lr_yc * (atom*V + min(0, r+gamma*v - V))
+                self.Q[x.y, x.x, a].yC[i] = yCn
+
     def next_action_alpha(self, x, alpha):
         yc = [self.Q[x.y, x.x, a].yc_alpha(alpha) for a in self.world.ACTIONS]
         return np.argmax(yc)
@@ -69,14 +89,17 @@ class ActionValueFunction:
         yc = [self.Q[x.y, x.x, a].e_min_s(s) for a in self.world.ACTIONS]
         return np.argmax(yc)
 
-    def sup_q(self, x):
+    def sup_q(self, x, return_yc=False):
         """
         Returns a distribution representing the value function at state x.
         Constructed by taking a supremum of yC over actions for each atom.
         """
         yc = [np.max([self.Q[x.y, x.x, a].yC[i] for a in self.world.ACTIONS]) for i in range(NB_ATOMS)]
 
-        return cvar_computation.yc_to_var(atoms, yc)
+        if return_yc:
+            return yc
+        else:
+            return cvar_computation.yc_to_var(atoms, yc)
 
     def var_alpha(self, x, a, alpha):
         # TODO: check
@@ -120,7 +143,6 @@ class MarkovState:
         v = self.dist_from_yc()
         ax[2].step(atoms, list(v) + [v[-1]], 'o-', where='post')
         if show:
-
             plt.show()
 
     def expected_value(self):
@@ -155,10 +177,15 @@ class MarkovState:
 def q_learning(world, alpha, max_episodes=2e3, max_episode_length=1e2):
     Q = ActionValueFunction(world)
 
+    # learning parameters
+    eps = 0.5
+    beta = .4
+
     e = 0
     while e < max_episodes:
         if e % 10 == 0:
-            print(e)
+            print(e, beta)
+            beta *= 0.995
         x = world.initial_state
         a = eps_greedy(Q.next_action_alpha(x, alpha), eps, world.ACTIONS)
         s = Q.var_alpha(x, a, alpha)
@@ -168,12 +195,37 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=1e2):
             t = world.sample_transition(x, a)
             x_, r = t.state, t.reward
 
-            Q.update(x, a, x_, r, (e, i))
+            Q.update(x, a, x_, r, beta, (e, i))
+            # Q.update_safe(x, a, x_, r, beta, (e, i))
 
             s = (s-r)/gamma
             x = x_
 
             i += 1
+        e += 1
+
+    return Q
+
+
+def pseudo_q_learning(world, max_episodes):
+    Q = ActionValueFunction(world)
+
+    e = 0
+    beta = 0.01 / NB_ATOMS
+    while e < max_episodes:
+        if e % 10 == 0:
+            print(e, beta)
+        for x in world.states():
+            if x in world.goal_states or x in world.cliff_states:
+                continue
+            a = np.random.randint(0, 4)
+
+            t = world.sample_transition(x, a)
+            x_, r = t.state, t.reward
+
+            # Q.update(x, a, x_, r, beta)
+            Q.update_safe(x, a, x_, r, beta)
+
         e += 1
 
     return Q
@@ -198,11 +250,11 @@ if __name__ == '__main__':
 
     # =============== PI setup
     alpha = 0.1
-    Q = q_learning(world, alpha, max_episodes=4e3)
+    Q = q_learning(world, alpha, max_episodes=10000)
+    # Q = pseudo_q_learning(world, 10000)
     import pickle
     pickle.dump(Q, open("../files/q.pkl", 'wb'))
-
-    Q = pickle.load(open("../files/q.pkl", 'rb'))
+    # Q = pickle.load(open("../files/q.pkl", 'rb'))
 
     pm = InteractivePlotMachine(world, Q, action_value=True)
     pm.show()

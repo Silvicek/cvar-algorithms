@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
+from cliffwalker import State
+from util import cvar_computation
 
 # arrows
 offsets = {0: (0.4, 0), 1: (-0.4, 0), 2: (0, 0.4), 3: (0, -0.4)}
@@ -99,8 +101,14 @@ class InteractivePlotMachine:
         for a in self.world.ACTIONS:
             self.V.Q[y, x, a].plot(ax=self.state_ax, show=False)
         ax.legend([self.world.ACTION_NAMES[a] for a in self.world.ACTIONS])
-        self.state_fig.show()
 
+        # combination of all actions
+        V_x = self.V.sup_q(State(y, x))
+        yc_x = self.V.sup_q(State(y, x), True)
+        self.state_ax[2].step(self.V.atoms, list(V_x) + [V_x[-1]], '--', where='post')
+        self.state_ax[1].plot(self.V.atoms, np.insert(yc_x, 0, 0), '--')
+
+        self.state_fig.show()
 
     def _canvas_to_grid(self, xd, yd):
         offset = -0.5

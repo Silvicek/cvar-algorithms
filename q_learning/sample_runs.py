@@ -10,9 +10,9 @@ import pickle
 if __name__ == '__main__':
 
     world = GridWorld(4, 6, random_action_p=0.1)
-    alpha = 0.1
+    alpha = 0.7
     # =============== VI setup
-    Q = q_learning.q_learning(world, alpha, max_episodes=5000)
+    Q = q_learning.q_learning(world, alpha, max_episodes=10000)
     # pickle.dump(Q, open("../files/q.pkl", 'wb'))
 
     # Q = pickle.load(open("../files/q.pkl", 'rb'))
