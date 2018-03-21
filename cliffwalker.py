@@ -38,7 +38,7 @@ class GridWorld:
             for x in range(width):
                 for y in range(height):
                     s = State(y, x)
-                    p_cliff = 0.1 * (y / height)**2 * bool(x != 0 and y != 0 and x < width-1 and y < height-1)
+                    p_cliff = 0.3 * (y / height)**2 * bool(x != 0 and y != 0 and x < width-1 and y < height-1)
                     if s == self.initial_state or s in self.goal_states:
                         continue
 
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     from util.constants import *
     from plots.grid_plot_machine import grid_plot
     import matplotlib.pyplot as plt
-    for i in range(10):
+    for i in range(10, 20):
         print('seed=', i)
         np.random.seed(i)
         world = GridWorld(10, 15)

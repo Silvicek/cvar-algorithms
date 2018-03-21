@@ -21,7 +21,7 @@ class ValueFunction:
         for ix in np.ndindex(self.V.shape):
             self.V[ix] = MarkovState()
 
-    def update(self, y, x):
+    def update(self, y, x, deep=True):
 
         vars = []
         cvars = []
@@ -36,7 +36,8 @@ class ValueFunction:
             elif WASSERSTEIN:
                 v, yc = self.V[y, x].compute_wasserstein([t_.prob for t_ in t], var_values)
             else:
-                v, yc = self.V[y, x].compute_cvar_by_sort([t_.prob for t_ in t], var_values)
+                v, yc = self.V[y, x].compute_cvar_by_sort([t_.prob for t_ in t], var_values,
+                                                          [self.V[tr.state.y, tr.state.x].atoms for tr in t])
             vars.append(v)
             cvars.append(yc)
 
@@ -54,7 +55,10 @@ class ValueFunction:
         eps = 0.1
         c_0 = vars[best_args[0], 0]
         if c_0 - self.V[y, x].c_0 > eps:
-            print('large diffs', self.V[y, x].c_0-c_0, (y, x))
+            if deep and self.V[y, x].nb_atoms < 100:
+                self.V[y, x].increase_precision()
+                print('PRECISION:', self.V[y, x].nb_atoms, (y, x))
+                self.update(y, x, False)
 
     def next_action(self, y, x, alpha):
         assert alpha != 0
@@ -78,7 +82,7 @@ class ValueFunction:
         transition_p = [t.prob for t in self.transitions(y, x, a)]
         var_values = self.transition_vars(y, x, a)
 
-        return cvar_computation.tamar_lp_single(atoms, transition_p, var_values, alpha)
+        return cvar_computation.tamar_lp_single(self.V[y, x].atoms, transition_p, var_values, alpha)
 
     def var_cvar_xis(self, y, x, a, alpha):
         """
@@ -94,7 +98,8 @@ class ValueFunction:
         transitions = list(self.transitions(y, x, a))
         var_values = self.transition_vars(y, x, a)
 
-        info = extract_distribution(transitions, var_values, self.V[y, x].atom_p)
+        info = extract_distribution(transitions, var_values,
+                                    [self.V[tr.state.y, tr.state.x].atom_p for tr in transitions])
 
         xis = np.zeros(len(transitions))
         p = 0.
@@ -157,7 +162,7 @@ class ValueFunction:
         return states
 
 
-def extract_distribution(transitions, var_values, atom_p):
+def extract_distribution(transitions, var_values, atom_ps):
     """
 
     :param transitions:
@@ -165,12 +170,11 @@ def extract_distribution(transitions, var_values, atom_p):
     :param atom_p:
     :return: sorted list of tuples (probability, index, var)
     """
-    info = np.empty(var_values.shape, dtype=object)
+    info = []
     for i_t, t in enumerate(transitions):
-        for i_v, v, p_ in zip(range(len(var_values[i_t])), var_values[i_t], atom_p):
-            info[i_t, i_v] = (p_ * t.prob, i_t, v)
+        for i_v, v, p_ in zip(range(len(var_values[i_t])), var_values[i_t], atom_ps[i_t]):
+            info.append((p_ * t.prob, i_t, v))
 
-    info = list(info.flatten())
     info.sort(key=lambda x: x[-1])
     return info
 
@@ -200,14 +204,23 @@ class MarkovState:
         if show:
             plt.show()
 
+    def increase_precision(self):
+        self.nb_atoms = int(self.nb_atoms * 1.2)
+        new_atoms = spaced_atoms(self.nb_atoms, SPACING, LOG)
+        new_atom_p = new_atoms[1:] - new_atoms[:-1]
+        self.var = np.array([cvar_computation.single_var(self.atom_p, self.var, y) for y in new_atoms[1:]])
+
+        self.atoms = new_atoms
+        self.atom_p = new_atom_p
+
     def cvar_alpha(self, alpha):
         return cvar_computation.single_cvar(self.atom_p, self.var, alpha)
 
     def expected_value(self):
         return np.dot(self.atom_p, self.var)
 
-    def compute_cvar_by_sort(self, transition_p, var_values):
-        return cvar_computation.v_yc_from_transitions_sort(self.atoms, transition_p, var_values)
+    def compute_cvar_by_sort(self, transition_p, var_values, t_atoms):
+        return cvar_computation.v_yc_from_transitions_sort(self.atoms, transition_p, var_values, t_atoms)
 
     def compute_wasserstein(self, transition_p, var_values):
         raise NotImplementedError("Waiting for transfer from lp_compare and fix.")
@@ -233,6 +246,8 @@ def converged(V, V_, world):
         # dist = np.max(np.abs(V.V[s.y, s.x].var-V_.V[s.y, s.x].var))
         cvars = np.array([V.V[s.y, s.x].cvar_alpha(alpha) for alpha in V.V[s.y, s.x].atoms[1:]])
         cvars_ = np.array([V_.V[s.y, s.x].cvar_alpha(alpha) for alpha in V_.V[s.y, s.x].atoms[1:]])
+        if cvars.shape != cvars_.shape:
+            return False
         dist = np.max(np.abs(cvars - cvars_))
         if dist > max_val:
             max_state = s
@@ -270,17 +285,17 @@ def value_iteration(world, max_iters=1e3):
 if __name__ == '__main__':
     import pickle
     from plots.grid_plot_machine import InteractivePlotMachine
-    world = GridWorld(10, 15, random_action_p=0.1)
+    world = GridWorld(10, 15, random_action_p=0.05)
     # world = GridWorld(50, 60, random_action_p=.05)  # Tamar
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== VI setup
-    V = value_iteration(world, max_iters=100)
+    V = value_iteration(world, max_iters=200)
     # pickle.dump(V, open('../files/vi.pkl', mode='wb'))
     # V = pickle.load(open('../files/vi.pkl', 'rb'))
 
-    alpha = 0.01
+    alpha = 0.1
     pm = InteractivePlotMachine(world, V, alpha=alpha)
     pm.show()
 

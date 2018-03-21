@@ -221,22 +221,21 @@ def v_yc_from_transitions_lp(atoms, transition_p, var_values):
     return var, y_cvar
 
 
-def v_yc_from_transitions_sort(atoms, transition_p, var_values):
+def v_yc_from_transitions_sort(atoms, transition_p, var_values, t_atoms):
     """
     CVaR computation by using underlying distributions.
     :param transition_p:
     :param var_values: (transitions, nb_atoms)
-    :param atoms: e.g. [0, 0.25, 0.5, 1]
+    :param atoms: (transitions, nb_atoms+1) e.g. [0, 0.25, 0.5, 1]
     :return:
     """
-    atom_p = atoms[1:] - atoms[:-1]
     # 0) weight by transition probs
-    p = np.outer(transition_p, atom_p).flatten()
+    p = np.concatenate([transition_p[i]*(t_atoms[i][1:] - t_atoms[i][:-1]) for i in range(len(transition_p))])
 
     # 1) sort
-    sortargs = var_values.flatten().argsort()
-    var_sorted = var_values.flatten()[sortargs]
-    p_sorted = p.flatten()[sortargs]
+    sortargs = np.concatenate(var_values).argsort()
+    var_sorted = np.concatenate(var_values)[sortargs]
+    p_sorted = p[sortargs]
 
     # 2) compute y_cvar for each atom
     y_cvar = yc_vector(atoms, p_sorted, var_sorted)
