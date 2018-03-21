@@ -247,6 +247,10 @@ def v_yc_from_transitions_sort(atoms, transition_p, var_values):
     return var, y_cvar
 
 
+def v_0_from_transitions(V, transitions, gamma):
+    return min([t.reward + gamma*V[t.state.y, t.state.x].c_0 for t in transitions])
+
+
 def extract_distribution(transitions, var_values, atom_p):
     """
 

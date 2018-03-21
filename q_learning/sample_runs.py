@@ -3,19 +3,20 @@ from cliffwalker import *
 from plots.grid_plot_machine import PlotMachine
 from policy_improvement.policies import VarBasedQPolicy, TamarPolicy
 import q_learning
+from q_learning import ActionValueFunction, MarkovState
 
 import pickle
 
 
 if __name__ == '__main__':
 
-    world = GridWorld(4, 6, random_action_p=0.1)
-    alpha = 0.7
+    world = GridWorld(10, 15, random_action_p=0.1)
+    alpha = 0.1
     # =============== VI setup
-    Q = q_learning.q_learning(world, alpha, max_episodes=10000)
+    # Q = q_learning.q_learning(world, alpha, max_episodes=10000)
     # pickle.dump(Q, open("../files/q.pkl", 'wb'))
 
-    # Q = pickle.load(open("../files/q.pkl", 'rb'))
+    Q = pickle.load(open("../files/q.pkl", 'rb'))
 
     # Q.Q[0,3,2].plot()
 

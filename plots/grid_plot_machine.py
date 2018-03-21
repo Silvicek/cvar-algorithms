@@ -49,24 +49,30 @@ class PlotMachine:
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
+
 # TODO: unify imshow
 class InteractivePlotMachine:
 
-    def __init__(self, world, V, action_value=False):
+    def __init__(self, world, V, action_value=False, alpha=1):
         self.world = world
         self.V = V
         if action_value:
-            img = np.max(np.array([V.Q[ix].expected_value() for ix in np.ndindex(V.Q.shape)]).reshape(V.Q.shape), axis=-1)
+            img = np.max(np.array([V.Q[ix].yc_alpha(alpha)/alpha for ix in np.ndindex(V.Q.shape)]).reshape(V.Q.shape), axis=-1)
             print(img.shape)
 
             self.fig, self.ax = grid_plot(world, img)
             self.fig.canvas.mpl_connect('button_press_event', self.handle_click_q)
         else:
-            img = np.array([V.V[ix].expected_value() for ix in np.ndindex(V.V.shape)]).reshape(V.V.shape)
+            img = np.array([V.V[ix].cvar_alpha(alpha) for ix in np.ndindex(V.V.shape)]).reshape(V.V.shape)
             print(img.shape)
 
             self.fig, self.ax = grid_plot(world, img)
             self.fig.canvas.mpl_connect('button_press_event', self.handle_click_v)
+
+
+        # Optimal path
+        # path = self.V.optimal_path(alpha)
+        # print(path)
 
         self.state_fig = None
         self.state_ax = None

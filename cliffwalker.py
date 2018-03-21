@@ -107,3 +107,13 @@ class GridWorld:
 
 
 
+if __name__ == '__main__':
+    from util.constants import *
+    from plots.grid_plot_machine import grid_plot
+    import matplotlib.pyplot as plt
+    for i in range(10):
+        print('seed=', i)
+        np.random.seed(i)
+        world = GridWorld(10, 15)
+        grid_plot(world)
+        plt.show()

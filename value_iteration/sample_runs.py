@@ -70,12 +70,12 @@ def exhaustive_stats(world, epochs, *args):
 
 if __name__ == '__main__':
 
-    world = GridWorld(4, 6, random_action_p=0.1)
+    world = GridWorld(10, 15, random_action_p=0.1)
 
     # =============== VI setup
     V = value_iteration(world, max_iters=100)
-    alpha = 0.7
-    print(V.V[3, 0].y_cvar(alpha)/alpha)
+    alpha = 0.95
+    print(V.V[3, 0].cvar_alpha(alpha) / alpha)
 
     var_policy = TamarVarBasedPolicy(V, alpha)
     tamar_policy = TamarPolicy(V, alpha)
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     # policy_stats(world, var_policy, alpha, nb_epochs=nb_epochs)
 
     # =============== plot dynamic
-    V_visual = np.array([[V.V[i, j].y_cvar(alpha) for j in range(len(V.V[i]))] for i in range(len(V.V))])
+    V_visual = np.array([[V.V[i, j].cvar_alpha(alpha) for j in range(len(V.V[i]))] for i in range(len(V.V))])
     # print(V_visual)
     plot_machine = PlotMachine(world, V_visual)
     policy = tamar_policy

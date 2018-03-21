@@ -83,7 +83,7 @@ class ActionValueFunction:
                 self.Q[x.y, x.x, a].yC[i] = yCn
 
     def next_action_alpha(self, x, alpha):
-        yc = [self.Q[x.y, x.x, a].yc_alpha(alpha) for a in self.world.ACTIONS]
+        yc = [self.Q[x.y, x.x, a].cvar_alpha(alpha) for a in self.world.ACTIONS]
         return np.argmax(yc)
 
     def next_action_s(self, x, s):

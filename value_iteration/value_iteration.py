@@ -45,14 +45,16 @@ class ValueFunction:
 
         best_args = np.argmax(cvars, axis=0)
 
-        # check for error bound
-        # eps = 1
-        # yc = np.array([cvars[best_args[i], i] for i in range(len(self.V[y, x].var))])
-        # c0 = vars[best_args[0], 0]
-        # if 8*yc[0] - c0 > eps:
-        #     print('large diffs')
-
         self.V[y, x].var = np.array([vars[best_args[i], i] for i in range(len(self.V[y, x].var))])
+
+        self.V[y, x].c_0 = max([cvar_computation.v_0_from_transitions(self.V, list(self.transitions(y, x, a)), gamma)
+                                for a in self.world.ACTIONS])
+
+        # check for error bound
+        eps = 0.1
+        c_0 = vars[best_args[0], 0]
+        if c_0 - self.V[y, x].c_0 > eps:
+            print('large diffs', self.V[y, x].c_0-c_0, (y, x))
 
     def next_action(self, y, x, alpha):
         assert alpha != 0
@@ -137,6 +139,23 @@ class ValueFunction:
     def transition_vars(self, y, x, a):
         return np.array([t.reward + gamma * self.V[t.state.y, t.state.x].var for t in self.transitions(y, x, a)])
 
+    def optimal_path(self, alpha):
+        """
+        Get optimal deterministic path
+        """
+        from policy_improvement.policies import TamarPolicy
+        policy = TamarPolicy(self, alpha)
+        s = self.world.initial_state
+        states = [s]
+        t = Transition(s, 0, 0)
+        while s not in world.goal_states:
+            a = policy.next_action(t)
+            t = max(self.world.transitions(s)[a], key=lambda t: t.prob)
+            s = t.state
+            states.append(s)
+            print(s, a)
+        return states
+
 
 def extract_distribution(transitions, var_values, atom_p):
     """
@@ -164,6 +183,8 @@ class MarkovState:
         self.atoms = spaced_atoms(self.nb_atoms, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
         self.atom_p = self.atoms[1:] - self.atoms[:-1]  # [0.25, 0.25, 0.5]
 
+        self.c_0 = 0  # separate estimate for CVaR_0
+
     def plot(self, show=True, figax=None):
         import matplotlib.pyplot as plt
         if figax is None:
@@ -179,7 +200,7 @@ class MarkovState:
         if show:
             plt.show()
 
-    def y_cvar(self, alpha):
+    def cvar_alpha(self, alpha):
         return cvar_computation.single_cvar(self.atom_p, self.var, alpha)
 
     def expected_value(self):
@@ -210,8 +231,8 @@ def converged(V, V_, world):
     max_state = None
     for s in world.states():
         # dist = np.max(np.abs(V.V[s.y, s.x].var-V_.V[s.y, s.x].var))
-        cvars = np.array([V.V[s.y, s.x].y_cvar(alpha)/alpha for alpha in V.V[s.y, s.x].atoms[1:]])
-        cvars_ = np.array([V_.V[s.y, s.x].y_cvar(alpha)/alpha for alpha in V_.V[s.y, s.x].atoms[1:]])
+        cvars = np.array([V.V[s.y, s.x].cvar_alpha(alpha) for alpha in V.V[s.y, s.x].atoms[1:]])
+        cvars_ = np.array([V_.V[s.y, s.x].cvar_alpha(alpha) for alpha in V_.V[s.y, s.x].atoms[1:]])
         dist = np.max(np.abs(cvars - cvars_))
         if dist > max_val:
             max_state = s
@@ -249,20 +270,17 @@ def value_iteration(world, max_iters=1e3):
 if __name__ == '__main__':
     import pickle
     from plots.grid_plot_machine import InteractivePlotMachine
-    # world = GridWorld(10, 15, random_action_p=0.1)
-    world = GridWorld(50, 60, random_action_p=.05)  # Tamar
+    world = GridWorld(10, 15, random_action_p=0.1)
+    # world = GridWorld(50, 60, random_action_p=.05)  # Tamar
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== VI setup
     V = value_iteration(world, max_iters=100)
-    pickle.dump(V, open('../files/vi.pkl', mode='wb'))
+    # pickle.dump(V, open('../files/vi.pkl', mode='wb'))
     # V = pickle.load(open('../files/vi.pkl', 'rb'))
 
-    pm = InteractivePlotMachine(world, V)
+    alpha = 0.01
+    pm = InteractivePlotMachine(world, V, alpha=alpha)
     pm.show()
-
-
-
-
 
