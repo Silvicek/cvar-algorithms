@@ -27,7 +27,8 @@ class ActionValueFunction:
 
                 # learning rates
                 lr_v = beta * atom_p[i]  # p mirrors magnitude (for log-spaced)
-                lr_yc = beta * atom_p[i] / atom  # /atom for using the same beta when estimating cvar (not yc)
+                lr_yc = beta * atom_p[i]
+                # lr_yc = beta * atom_p[i] / atom  # /atom for using the same beta when estimating cvar (not yc)
 
                 if self.Q[x.y, x.x, a].V[i] >= r + gamma*v:
                     update = lr_v*(1-1/atom)
@@ -244,13 +245,13 @@ def q_to_v_exp(Q):
 if __name__ == '__main__':
 
     # world = GridWorld(1, 3, random_action_p=0.3)
-    world = GridWorld(4, 6, random_action_p=0.1)
+    world = GridWorld(10, 15, random_action_p=0.1)
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== PI setup
     alpha = 0.1
-    Q = q_learning(world, alpha, max_episodes=10000)
+    Q = q_learning(world, alpha, max_episodes=20000)
     # Q = pseudo_q_learning(world, 10000)
     import pickle
     pickle.dump(Q, open("../files/q.pkl", 'wb'))
