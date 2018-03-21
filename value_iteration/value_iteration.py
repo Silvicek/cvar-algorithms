@@ -73,48 +73,10 @@ class ValueFunction:
         return a, xis
 
     def tamar_lp_single(self, y, x, a, alpha):
-        """
-        Create LP:
-        min Sum p_t * I
-
-        0 <= xi <= 1/alpha
-        Sum p_t * xi == 1
-
-        I = max{yV}
-
-        return yV[alpha]
-        """
-
         transition_p = [t.prob for t in self.transitions(y, x, a)]
         var_values = self.transition_vars(y, x, a)
-        nb_transitions = len(transition_p)
 
-        Xi = [LpVariable('xi_' + str(i)) for i in range(nb_transitions)]
-        I = [LpVariable('I_' + str(i)) for i in range(nb_transitions)]
-
-        prob = LpProblem(name='tamar')
-
-        for xi in Xi:
-            prob.addConstraint(0 <= xi)
-            prob.addConstraint(xi <= 1. / alpha)
-        prob.addConstraint(sum([xi * p for xi, p in zip(Xi, transition_p)]) == 1)
-
-        for xi, i, var in zip(Xi, I, var_values):
-            last = 0.
-            f_params = []
-            for ix in range(self.V[y, x].nb_atoms):
-                k = var[ix]
-                last += k * self.V[y, x].atom_p[ix]
-                q = last - k * self.V[y, x].atoms[ix + 1]
-                prob.addConstraint(i >= k * xi * alpha + q)
-                f_params.append((k, q))
-
-        # opt criterion
-        prob.setObjective(sum([i * p for i, p in zip(I, transition_p)]))
-
-        prob.solve()
-
-        return value(prob.objective), [value(xi)*alpha for xi in Xi]
+        return cvar_computation.tamar_lp_single(atoms, transition_p, var_values, alpha)
 
     def var_cvar_xis(self, y, x, a, alpha):
         """
@@ -288,13 +250,13 @@ if __name__ == '__main__':
     import pickle
     from plots.grid_plot_machine import InteractivePlotMachine
     # world = GridWorld(10, 15, random_action_p=0.1)
-    world = GridWorld(4, 6, random_action_p=.3)
+    world = GridWorld(50, 60, random_action_p=.05)  # Tamar
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== VI setup
-    V = value_iteration(world, max_iters=200)
-    # pickle.dump(V, open('../files/vi.pkl', mode='wb'))
+    V = value_iteration(world, max_iters=100)
+    pickle.dump(V, open('../files/vi.pkl', mode='wb'))
     # V = pickle.load(open('../files/vi.pkl', 'rb'))
 
     pm = InteractivePlotMachine(world, V)

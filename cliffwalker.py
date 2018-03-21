@@ -18,7 +18,7 @@ class GridWorld:
     ACTION_UP = 2
     ACTION_DOWN = 3
     ACTIONS = [ACTION_LEFT, ACTION_RIGHT, ACTION_UP, ACTION_DOWN]
-    FALL_REWARD = -100
+    FALL_REWARD = -40
     ACTION_NAMES = {ACTION_LEFT: "Left", ACTION_RIGHT: "Right", ACTION_UP: "Up", ACTION_DOWN: "Down"}
 
     def __init__(self, height, width, random_action_p=0.1, risky_p_loss=0.15):
@@ -33,13 +33,12 @@ class GridWorld:
         self.initial_state = State(self.height - 1, 0)
         self.goal_states = {State(self.height - 1, self.width - 1)}
 
-
         self.cliff_states = set()
         if height != 1:
             for x in range(width):
                 for y in range(height):
                     s = State(y, x)
-                    p_cliff = 0.2 * (y / height) * bool(x != 0 and y != 0 and x < width-1)
+                    p_cliff = 0.1 * (y / height)**2 * bool(x != 0 and y != 0 and x < width-1 and y < height-1)
                     if s == self.initial_state or s in self.goal_states:
                         continue
 
