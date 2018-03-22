@@ -32,7 +32,7 @@ def policy_stats(world, policy, alpha, nb_epochs, verbose=True):
 
     rewards = np.array(rewards).flatten()
 
-    var, cvar = cvar_computation.v_c_from_samples(rewards, alpha)
+    var, cvar = cvar_computation.var_cvar_from_samples(rewards, alpha)
     if verbose:
         print('----------------')
         print(policy.__name__)

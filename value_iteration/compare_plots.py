@@ -122,9 +122,9 @@ def plot(*solutions, legend=True):
     #     cv = [cvar_computation.single_cvar(p, sol, alpha) for alpha in a]
     #     ax.plot(s_range, cv)
     #
-    var_at_atoms = cvar_computation.v_vector(atoms, ex_p, ex_v)
-    a = np.array([cvar_computation.s_to_alpha(s, atom_p, var_at_atoms) for s in s_range])
-    cv = [cvar_computation.single_cvar(atom_p, ss, alpha) for alpha in a]
+    var_at_atoms = cvar_computation.var_vector(atoms, ex_p, ex_v)
+    a = np.array([cvar_computation.single_var_to_alpha(s, atom_p, var_at_atoms) for s in s_range])
+    cv = [cvar_computation.single_cvar_from_alpha(atom_p, ss, alpha) for alpha in a]
     ax.plot(s_range, cv)
     # ax.set_title('CVaR(s)')
 

@@ -6,7 +6,7 @@ import numpy as np
 from pulp import *
 
 
-def v_c_from_samples(samples, alpha):
+def var_cvar_from_samples(samples, alpha):
     samples = np.sort(samples)
     alpha_ix = int(np.round(alpha * len(samples)))
     var = samples[alpha_ix - 1]
@@ -14,7 +14,8 @@ def v_c_from_samples(samples, alpha):
     return var, cvar
 
 
-def s_to_alpha(s, p_atoms, var_values):
+def single_var_to_alpha(s, p_atoms, var_values):
+    """ """
     e_min = 0
     ix = 0
     alpha = 0
@@ -32,7 +33,7 @@ def s_to_alpha(s, p_atoms, var_values):
         return alpha
 
 
-def single_var(p_sorted, v_sorted, alpha):
+def single_alpha_to_var(p_sorted, v_sorted, alpha):
     if alpha > 0.999:
         return v_sorted[-1]
     p = 0.
@@ -49,7 +50,7 @@ def single_var(p_sorted, v_sorted, alpha):
     return var
 
 
-def v_vector(atoms, p_sorted, v_sorted):
+def var_vector(atoms, p_sorted, v_sorted):
     """
     :param atoms: full atoms, shape=[n]
     :param p_sorted: probability mass, shape=[m]
@@ -80,7 +81,7 @@ def v_vector(atoms, p_sorted, v_sorted):
     return v
 
 
-def single_cvar(p_sorted, v_sorted, alpha):
+def single_cvar_from_alpha(p_sorted, v_sorted, alpha):
     # TODO: check
     if alpha == 0:
         return v_sorted[0]
@@ -99,7 +100,7 @@ def single_cvar(p_sorted, v_sorted, alpha):
     return cvar
 
 
-def yc_vector(atoms, p_sorted, v_sorted):
+def ycvar_vector(atoms, p_sorted, v_sorted):
     """
     Compute yCvAR at desired atom locations.
     len(p) == len(var)
@@ -155,7 +156,7 @@ def yc_to_var(atoms, y_cvar):
     return var
 
 
-def var_to_yc(p_sorted, v_sorted):
+def var_to_ycvar(p_sorted, v_sorted):
     yc = np.zeros_like(p_sorted)
     yc_last = 0
     for i in range(len(yc)):
@@ -164,63 +165,17 @@ def var_to_yc(p_sorted, v_sorted):
     return yc
 
 
-def tamar_lp_single(atoms, transition_p, var_values, alpha):
-    """
-    Create LP:
-    min Sum p_t * I
-
-    0 <= xi <= 1/alpha
-    Sum p_t * xi == 1
-
-    I = max{y_cvar}
-
-    return y_cvar[alpha]
-    """
-    if alpha == 0:
-        return 0.
-
-    atom_p = atoms[1:] - atoms[:-1]
-    nb_atoms = len(atom_p)
-    nb_transitions = len(transition_p)
-
-    Xi = [LpVariable('xi_' + str(i)) for i in range(nb_transitions)]
-    I = [LpVariable('I_' + str(i)) for i in range(nb_transitions)]
-
-    prob = LpProblem(name='tamar')
-
-    for xi in Xi:
-        prob.addConstraint(0 <= xi)
-        prob.addConstraint(xi <= 1./alpha)
-    prob.addConstraint(sum([xi*p for xi, p in zip(Xi, transition_p)]) == 1)
-
-    for xi, i, var in zip(Xi, I, var_values):
-        last = 0.
-        f_params = []
-        for ix in range(nb_atoms):
-            k = var[ix]
-            last += k * atom_p[ix]
-            q = last - k * atoms[ix+1]
-            prob.addConstraint(i >= k * xi * alpha + q)
-            f_params.append((k, q))
-
-    # opt criterion
-    prob.setObjective(sum([i * p for i, p in zip(I, transition_p)]))
-
-    prob.solve()
-
-    return value(prob.objective)
-
-
-def v_yc_from_transitions_lp_yc(atoms, transition_p, yc_values):
+def v_yc_from_transitions_lp(atoms, transition_p, yc_values):
     """ CVaR computation by dual decomposition LP. """
-    y_cvar = [tamar_lp_single_yc(atoms, transition_p, yc_values, alpha) for alpha in atoms[1:]]
+    raise NotImplementedError("TODO: -> atoms")
+    y_cvar = [single_yc_lp(atoms, transition_p, yc_values, alpha) for alpha in atoms[1:]]
     # extract vars:
     var = yc_to_var(atoms, y_cvar)
 
     return var, y_cvar
 
 
-def tamar_lp_single_yc(atoms, transition_p, yc_values, alpha):
+def single_yc_lp(transition_p, atom_values, yc_values, alpha, xis=False):
     """
     Create LP:
     min Sum p_t * I
@@ -235,8 +190,6 @@ def tamar_lp_single_yc(atoms, transition_p, yc_values, alpha):
     if alpha == 0:
         return 0.
 
-    atom_p = atoms[1:] - atoms[:-1]
-    nb_atoms = len(atom_p)
     nb_transitions = len(transition_p)
 
     Xi = [LpVariable('xi_' + str(i)) for i in range(nb_transitions)]
@@ -249,10 +202,11 @@ def tamar_lp_single_yc(atoms, transition_p, yc_values, alpha):
         prob.addConstraint(xi <= 1./alpha)
     prob.addConstraint(sum([xi*p for xi, p in zip(Xi, transition_p)]) == 1)
 
-    for xi, i, yc in zip(Xi, I, yc_values):
+    for xi, i, yc, atoms in zip(Xi, I, yc_values, atom_values):
         last_yc = 0.
         f_params = []
-        for ix in range(nb_atoms):
+        atom_p = atoms[1:] - atoms[:-1]
+        for ix in range(len(yc)):
             # linear interpolation as a solution to 'y = kx + q'
             k = (yc[ix]-last_yc)/atom_p[ix]
 
@@ -266,17 +220,20 @@ def tamar_lp_single_yc(atoms, transition_p, yc_values, alpha):
 
     prob.solve()
 
-    return value(prob.objective)
+    if xis:
+        return value(prob.objective), [value(xi)*alpha for xi in Xi]
+    else:
+        return value(prob.objective)
 
 
-def v_yc_from_transitions_lp(atoms, transition_p, var_values):
-    """ CVaR computation by dual decomposition LP. """
-    # TODO: single LP
-    y_cvar = [tamar_lp_single(atoms, transition_p, var_values, alpha) for alpha in atoms[1:]]
-    # extract vars:
-    var = yc_to_var(atoms, y_cvar)
-
-    return var, y_cvar
+# def v_yc_from_transitions_lp(atoms, transition_p, var_values):
+#     """ CVaR computation by dual decomposition LP. """
+#     # TODO: single LP
+#     y_cvar = [tamar_lp_single(atoms, transition_p, var_values, alpha) for alpha in atoms[1:]]
+#     # extract vars:
+#     var = ycvar_to_var(atoms, y_cvar)
+#
+#     return var, y_cvar
 
 
 def v_yc_from_transitions_sort(atoms, transition_p, var_values, t_atoms):
@@ -296,7 +253,7 @@ def v_yc_from_transitions_sort(atoms, transition_p, var_values, t_atoms):
     p_sorted = p[sortargs]
 
     # 2) compute y_cvar for each atom
-    y_cvar = yc_vector(atoms, p_sorted, var_sorted)
+    y_cvar = ycvar_vector(atoms, p_sorted, var_sorted)
 
     # 3) get vars from y_cvar
     var = yc_to_var(atoms, y_cvar)
@@ -329,8 +286,8 @@ def extract_distribution(transitions, var_values, atom_p):
 if __name__ == '__main__':
 
     # print(yc_vector([0.25, 0.5, 1.], [0.75, 0.25], [1., 2.]))
-    print(s_to_alpha(-2, [1/3, 1/3, 1/3], [-2, -0, 1]))
-    print(s_to_alpha(-1, [1/3, 1/3, 1/3], [-2, -0, 1]))
-    print(s_to_alpha(0, [1/3, 1/3, 1/3], [-2, -0, 1]))
-    print(s_to_alpha(1, [1/3, 1/3, 1/3], [-2, -0, 1]))
-    print(s_to_alpha(2, [1/3, 1/3, 1/3], [-2, -0, 1]))
+    print(single_var_to_alpha(-2, [1 / 3, 1 / 3, 1 / 3], [-2, -0, 1]))
+    print(single_var_to_alpha(-1, [1 / 3, 1 / 3, 1 / 3], [-2, -0, 1]))
+    print(single_var_to_alpha(0, [1 / 3, 1 / 3, 1 / 3], [-2, -0, 1]))
+    print(single_var_to_alpha(1, [1 / 3, 1 / 3, 1 / 3], [-2, -0, 1]))
+    print(single_var_to_alpha(2, [1 / 3, 1 / 3, 1 / 3], [-2, -0, 1]))

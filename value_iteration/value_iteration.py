@@ -3,10 +3,9 @@ from util.constants import *
 from util import cvar_computation
 import numpy as np
 import copy
-from pulp import *
 
 # use LP when computing CVaRs
-TAMAR_LP = False
+TAMAR_LP = True
 # TAMAR_LP = False
 
 WASSERSTEIN = False
@@ -25,6 +24,7 @@ class ValueFunction:
     def update(self, y, x, deep=True):
 
         yc_a = []
+        v_a = []
 
         for a in self.world.ACTIONS:
             t = list(self.transitions(y, x, a))
@@ -37,28 +37,27 @@ class ValueFunction:
                 v, yc = self.V[y, x].compute_cvar_by_sort([t_.prob for t_ in t], self.transition_vars(y, x, a),
                                                           [self.V[tr.state.y, tr.state.x].atoms for tr in t])
             yc_a.append(yc)
+            v_a.append(v)
 
         yc_a = np.array(yc_a)
+        v_a = np.array(v_a)
 
         best_args = np.argmax(yc_a, axis=0)
 
-        # self.V[y, x].var = np.array([vars[best_args[i], i] for i in range(len(self.V[y, x].var))])
         self.V[y, x].yC = np.array([yc_a[best_args[i], i] for i in range(len(self.V[y, x].yC))])
 
-        # print(self.V[y, x].yC/self.V[y, x].atoms[1:], (y, x))
-
-        # self.V[y, x].c_0 = max([cvar_computation.v_0_from_transitions(self.V, list(self.transitions(y, x, a)), gamma)
-        #                         for a in self.world.ACTIONS])
+        self.V[y, x].c_0 = max([cvar_computation.v_0_from_transitions(self.V, list(self.transitions(y, x, a)), gamma)
+                                for a in self.world.ACTIONS])
 
         # check for error bound
-        # eps = 0.1
-        # c_0 = vars[best_args[0], 0]
-        # if c_0 - self.V[y, x].c_0 > eps:
-        #     # if deep and self.V[y, x].nb_atoms < 100:
-        #     if deep:
-        #         self.V[y, x].increase_precision(eps)
-        #         print('PRECISION:', self.V[y, x].nb_atoms, (y, x))
-        #         self.update(y, x, False)
+        eps = 1.
+        c_0 = v_a[best_args[0], 0]
+        if c_0 - self.V[y, x].c_0 > eps:
+            # if deep and self.V[y, x].nb_atoms < 100:
+            if deep:
+                self.V[y, x].increase_precision(eps)
+                print('PRECISION:', self.V[y, x].nb_atoms, (y, x))
+                self.update(y, x, False)
 
     def next_action(self, y, x, alpha):
         assert alpha != 0
@@ -67,24 +66,24 @@ class ValueFunction:
         for a in self.world.ACTIONS:
 
             if TAMAR_LP:
-                cv, xis = self.tamar_lp_single(y, x, a, alpha)
+                cv, xis = self.single_yc_xis_lp(y, x, a, alpha)
             else:
-                _, cv, xis = self.var_cvar_xis(y, x, a, alpha)
+                _, cv, xis = self.single_var_yc_xis(y, x, a, alpha)
 
             if cv > best[0]:
                 best = (cv, xis, a)
 
         _, xis, a = best
-
+        print(xis)
         return a, xis
 
-    def tamar_lp_single(self, y, x, a, alpha):
+    def single_yc_xis_lp(self, y, x, a, alpha):
         transition_p = [t.prob for t in self.transitions(y, x, a)]
-        var_values = self.transition_vars(y, x, a)
+        atom_values = [self.V[t.state.y, t.state.x].atoms for t in self.transitions(y, x, a)]
+        yc = self.transition_ycs(y, x, a)
+        return cvar_computation.single_yc_lp(transition_p, atom_values, yc, alpha, xis=True)
 
-        return cvar_computation.tamar_lp_single(self.V[y, x].atoms, transition_p, var_values, alpha)
-
-    def var_cvar_xis(self, y, x, a, alpha):
+    def single_var_yc_xis(self, y, x, a, alpha):
         """
         Compute VaR, CVaR and xi values in O(nlogn)
         :param y:
@@ -117,9 +116,10 @@ class ValueFunction:
                 cv += p_ * v
                 p += p_
 
-        return v, cv, xis / np.array([t.prob for t in transitions])
+        return v, cv, xis
 
     def y_var(self, y, x, a, var):
+        """ E[(Z-var)^-] + yvar"""
 
         transitions = list(self.transitions(y, x, a))
         var_values = self.transition_vars(y, x, a)
@@ -148,9 +148,7 @@ class ValueFunction:
         return np.array([t.reward*self.V[t.state.y, t.state.x].atoms[1:] + gamma * self.V[t.state.y, t.state.x].yC for t in self.transitions(y, x, a)])
 
     def optimal_path(self, alpha):
-        """
-        Get optimal deterministic path
-        """
+        """ Optimal deterministic path. """
         from policy_improvement.policies import TamarPolicy, TamarVarBasedPolicy
         policy = TamarPolicy(self, alpha)
         # policy = TamarVarBasedPolicy(self, alpha)
@@ -162,9 +160,10 @@ class ValueFunction:
             t = max(self.world.transitions(s)[a], key=lambda t: t.prob)
             s = t.state
             if s in states:
+                print(s, world.ACTION_NAMES[a], end='')
                 raise ZeroDivisionError()
             states.append(s)
-            print(s, a)
+            print(s, world.ACTION_NAMES[a])
         return states
 
 
@@ -216,23 +215,25 @@ class MarkovState:
 
     def increase_precision(self, eps):
         """ Bound error by adding atoms. Follows the adaptive procedure from RSRDM. """
-        raise NotImplementedError('fix var ->yc')
-        new_atoms = [0]
-        y = (eps*self.atom_p[0])/(np.abs(self.var[0]-self.c_0))
+        new_atoms = []
+        v_0 = self.yC[0]
+        y = (eps*self.atom_p[0])/(np.abs(v_0-self.c_0))
+        if y < 1e-15:
+            print('SMALL')
 
         while y < self.atom_p[0]:
             new_atoms.append(y)
             y *= SPACING
 
-        self.atoms = np.hstack((new_atoms, self.atoms[1:]))
+        self.atoms = np.hstack((np.array([0]), new_atoms, self.atoms[1:]))
         self.atom_p = self.atoms[1:] - self.atoms[:-1]
 
-        # self.var = np.hstack((self.var[0]*np.ones(len(new_atoms)-1), self.var))
+        self.yC = np.hstack((v_0*np.array(new_atoms), self.yC))
 
-        self.nb_atoms = len(self.var)
+        self.nb_atoms = len(self.yC)
 
     def cvar_alpha(self, alpha):
-        return cvar_computation.single_cvar(self.atom_p, self.var, alpha)
+        return cvar_computation.single_cvar_from_alpha(self.atom_p, self.var, alpha)
 
     def expected_value(self):
         return np.dot(self.atom_p, self.var)
@@ -244,7 +245,7 @@ class MarkovState:
         raise NotImplementedError("Waiting for transfer from lp_compare and fix.")
 
     def compute_cvar_by_lp(self, transition_p, var_values):
-        return cvar_computation.v_yc_from_transitions_lp_yc(self.atoms, transition_p, var_values)
+        return cvar_computation.v_yc_from_transitions_lp(self.atoms, transition_p, var_values)
 
 
 def value_update(world, V, id=0, figax=None):
@@ -263,7 +264,7 @@ def value_update(world, V, id=0, figax=None):
 
 
 def converged(V, V_, world):
-    eps = 1e-4
+    eps = 1e-5
     max_val = eps
     max_state = None
     for s in world.states():
@@ -303,12 +304,10 @@ def value_iteration(world, max_iters=1e3):
 
     return V
 
-# TODO: smart convergence  ---  the cvar converges, not necessarily the distributions (?)
-
 if __name__ == '__main__':
     import pickle
     from plots.grid_plot_machine import InteractivePlotMachine
-    # world = GridWorld(4, 6, random_action_p=0.05)
+    # world = GridWorld(10, 15, random_action_p=0.05)
     world = GridWorld(50, 60, random_action_p=.05)  # Tamar
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
@@ -318,7 +317,8 @@ if __name__ == '__main__':
     # pickle.dump(V, open('../files/vi.pkl', mode='wb'))
     V = pickle.load(open('../files/vi.pkl', 'rb'))
 
-    alpha = 0.1
-    pm = InteractivePlotMachine(world, V, alpha=alpha)
-    pm.show()
+    for alpha in np.arange(0.05, 1, 0.05):
+        print(alpha)
+        pm = InteractivePlotMachine(world, V, alpha=alpha)
+        pm.show()
 

@@ -225,7 +225,7 @@ class TamarVarBasedPolicy(Policy):
         if self.var is None:
             best = (0, -1e6, 0)  # (var, cvar, action)
             for a in self.V.world.ACTIONS:
-                v, cv, _ = self.V.var_cvar_xis(t.state.y, t.state.x, a, self.alpha)
+                v, cv, _ = self.V.single_var_yc_xis(t.state.y, t.state.x, a, self.alpha)
                 if cv > best[1]:
                     best = v, cv, a
             v, _, a = best

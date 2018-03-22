@@ -143,7 +143,7 @@ def value_update(world, Q, P):
 
 
 def converged(Q, Q_):
-    return np.linalg.norm(Q-Q_)/Q.size < 0.00001
+    return np.linalg.norm(Q-Q_)/Q.size < 1e-5
 
 
 def eval_fixed_policy(world, P):
@@ -169,7 +169,7 @@ def q_to_v_argmax(world, Q):
 
 if __name__ == '__main__':
 
-    world = GridWorld(40, 60, random_action_p=0.1)
+    world = GridWorld(40, 60, random_action_p=0.05)
 
     # Q = policy_iteration(world)
     Q = value_iteration(world)

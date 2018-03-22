@@ -10,9 +10,9 @@ gamma = 0.95
 
 
 # atom spacing
-NB_ATOMS = 21
+NB_ATOMS = 20
 LOG = True  # atoms are log-spaced
-SPACING = 2.065
+SPACING = 2
 
 # atoms = spaced_atoms(NB_ATOMS, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
 # atom_p = atoms[1:] - atoms[:-1]  # [0.25, 0.25, 0.5]
