@@ -70,10 +70,13 @@ class InteractivePlotMachine:
             self.fig.canvas.mpl_connect('button_press_event', self.handle_click_v)
 
         # Optimal path
-        path = self.V.optimal_path(alpha)
-        print(path)
-        self.ax.plot([s[1] for s in path], [s[0] for s in path], 'o-', color='white')
-
+        try:
+            path = self.V.optimal_path(alpha)
+            print(path)
+            self.ax.plot([s[1] for s in path], [s[0] for s in path], 'o-', color='white')
+        except ZeroDivisionError:
+            print("ERROR: Optimal path contains cycles.")
+        #
         self.state_fig = None
         self.state_ax = None
 

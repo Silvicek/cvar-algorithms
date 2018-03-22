@@ -201,7 +201,65 @@ def tamar_lp_single(atoms, transition_p, var_values, alpha):
             last += k * atom_p[ix]
             q = last - k * atoms[ix+1]
             prob.addConstraint(i >= k * xi * alpha + q)
-            f_params.append((k,q))
+            f_params.append((k, q))
+
+    # opt criterion
+    prob.setObjective(sum([i * p for i, p in zip(I, transition_p)]))
+
+    prob.solve()
+
+    return value(prob.objective)
+
+
+def v_yc_from_transitions_lp_yc(atoms, transition_p, yc_values):
+    """ CVaR computation by dual decomposition LP. """
+    y_cvar = [tamar_lp_single_yc(atoms, transition_p, yc_values, alpha) for alpha in atoms[1:]]
+    # extract vars:
+    var = yc_to_var(atoms, y_cvar)
+
+    return var, y_cvar
+
+
+def tamar_lp_single_yc(atoms, transition_p, yc_values, alpha):
+    """
+    Create LP:
+    min Sum p_t * I
+
+    0 <= xi <= 1/alpha
+    Sum p_t * xi == 1
+
+    I = max{y_cvar}
+
+    return y_cvar[alpha]
+    """
+    if alpha == 0:
+        return 0.
+
+    atom_p = atoms[1:] - atoms[:-1]
+    nb_atoms = len(atom_p)
+    nb_transitions = len(transition_p)
+
+    Xi = [LpVariable('xi_' + str(i)) for i in range(nb_transitions)]
+    I = [LpVariable('I_' + str(i)) for i in range(nb_transitions)]
+
+    prob = LpProblem(name='tamar')
+
+    for xi in Xi:
+        prob.addConstraint(0 <= xi)
+        prob.addConstraint(xi <= 1./alpha)
+    prob.addConstraint(sum([xi*p for xi, p in zip(Xi, transition_p)]) == 1)
+
+    for xi, i, yc in zip(Xi, I, yc_values):
+        last_yc = 0.
+        f_params = []
+        for ix in range(nb_atoms):
+            # linear interpolation as a solution to 'y = kx + q'
+            k = (yc[ix]-last_yc)/atom_p[ix]
+
+            q = last_yc - k * atoms[ix]
+            prob.addConstraint(i >= k * xi * alpha + q)
+            f_params.append((k, q))
+            last_yc = yc[ix]
 
     # opt criterion
     prob.setObjective(sum([i * p for i, p in zip(I, transition_p)]))
