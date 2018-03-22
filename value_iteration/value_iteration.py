@@ -52,13 +52,14 @@ class ValueFunction:
                                 for a in self.world.ACTIONS])
 
         # check for error bound
-        eps = 0.1
-        c_0 = vars[best_args[0], 0]
-        if c_0 - self.V[y, x].c_0 > eps:
-            if deep and self.V[y, x].nb_atoms < 100:
-                self.V[y, x].increase_precision()
-                print('PRECISION:', self.V[y, x].nb_atoms, (y, x))
-                self.update(y, x, False)
+        # eps = 0.1
+        # c_0 = vars[best_args[0], 0]
+        # if c_0 - self.V[y, x].c_0 > eps:
+        #     # if deep and self.V[y, x].nb_atoms < 100:
+        #     if deep:
+        #         self.V[y, x].increase_precision(eps)
+        #         print('PRECISION:', self.V[y, x].nb_atoms, (y, x))
+        #         self.update(y, x, False)
 
     def next_action(self, y, x, alpha):
         assert alpha != 0
@@ -124,7 +125,7 @@ class ValueFunction:
         transitions = list(self.transitions(y, x, a))
         var_values = self.transition_vars(y, x, a)
 
-        info = extract_distribution(transitions, var_values, self.V[y, x].atom_p)
+        info = extract_distribution(transitions, var_values, [self.V[tr.state.y, tr.state.x].atom_p for tr in transitions])
 
         yv = 0.
         p = 0
@@ -148,8 +149,9 @@ class ValueFunction:
         """
         Get optimal deterministic path
         """
-        from policy_improvement.policies import TamarPolicy
+        from policy_improvement.policies import TamarPolicy, TamarVarBasedPolicy
         policy = TamarPolicy(self, alpha)
+        # policy = TamarVarBasedPolicy(self, alpha)
         s = self.world.initial_state
         states = [s]
         t = Transition(s, 0, 0)
@@ -182,7 +184,7 @@ def extract_distribution(transitions, var_values, atom_ps):
 class MarkovState:
 
     def __init__(self):
-        self.nb_atoms = NB_ATOMS
+        self.nb_atoms = NB_ATOMS  # TODO: make property
         self.var = np.zeros(self.nb_atoms)
         self.atoms = spaced_atoms(self.nb_atoms, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
         self.atom_p = self.atoms[1:] - self.atoms[:-1]  # [0.25, 0.25, 0.5]
@@ -204,14 +206,22 @@ class MarkovState:
         if show:
             plt.show()
 
-    def increase_precision(self):
-        self.nb_atoms = int(self.nb_atoms * 1.2)
-        new_atoms = spaced_atoms(self.nb_atoms, SPACING, LOG)
-        new_atom_p = new_atoms[1:] - new_atoms[:-1]
-        self.var = np.array([cvar_computation.single_var(self.atom_p, self.var, y) for y in new_atoms[1:]])
+    def increase_precision(self, eps):
+        """ Bound error by adding atoms. Follows the adaptive procedure from RSRDM. """
+        new_atoms = [0]
+        y = (eps*self.atom_p[0])/(np.abs(self.var[0]-self.c_0))
 
-        self.atoms = new_atoms
-        self.atom_p = new_atom_p
+        while y < self.atom_p[0]:
+            new_atoms.append(y)
+            y *= SPACING
+
+        self.atoms = np.hstack((new_atoms, self.atoms[1:]))
+        self.atom_p = self.atoms[1:] - self.atoms[:-1]
+
+        self.var = np.hstack((self.var[0]*np.ones(len(new_atoms)-1), self.var))
+
+        self.nb_atoms = len(self.var)
+
 
     def cvar_alpha(self, alpha):
         return cvar_computation.single_cvar(self.atom_p, self.var, alpha)
@@ -278,21 +288,19 @@ def value_iteration(world, max_iters=1e3):
 
     return V
 
-
-# TODO: control error by adding atoms
 # TODO: smart convergence  ---  the cvar converges, not necessarily the distributions (?)
 
 if __name__ == '__main__':
     import pickle
     from plots.grid_plot_machine import InteractivePlotMachine
-    world = GridWorld(10, 15, random_action_p=0.05)
+    world = GridWorld(4, 6, random_action_p=0.05)
     # world = GridWorld(50, 60, random_action_p=.05)  # Tamar
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== VI setup
-    V = value_iteration(world, max_iters=200)
-    # pickle.dump(V, open('../files/vi.pkl', mode='wb'))
+    V = value_iteration(world, max_iters=100)
+    pickle.dump(V, open('../files/vi.pkl', mode='wb'))
     # V = pickle.load(open('../files/vi.pkl', 'rb'))
 
     alpha = 0.1
