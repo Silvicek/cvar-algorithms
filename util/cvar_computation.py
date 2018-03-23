@@ -1,25 +1,26 @@
 """
 Different CVaR computations and conversions.
-Naming conventions: v=VaR, c=CVaR, yc=yCVaR
+Naming conventions: v=VaR, c=CVaR, yc=yCVaR, t=transition
+
+single_: extract a single value from a distribution
+
+
 """
 import numpy as np
 from pulp import *
 
 
-def var_cvar_from_samples(samples, alpha):
-    samples = np.sort(samples)
-    alpha_ix = int(np.round(alpha * len(samples)))
-    var = samples[alpha_ix - 1]
-    cvar = np.mean(samples[:alpha_ix])
-    return var, cvar
+# ===================================================================
+# Single:
+# gets the desired values from a single distribution
+# ===================================================================
 
-
-def single_var_to_alpha(s, p_atoms, var_values):
+def single_var_to_alpha(p_sorted, v_sorted, s):
     """ """
     e_min = 0
     ix = 0
     alpha = 0
-    for v, p in zip(var_values, p_atoms):
+    for v, p in zip(v_sorted, p_sorted):
         if v > s:
             break
         else:
@@ -27,27 +28,157 @@ def single_var_to_alpha(s, p_atoms, var_values):
             e_min += p*v
             alpha += p
 
-    if ix == 0:
-        return 0
-    else:
-        return alpha
+    return alpha
 
 
 def single_alpha_to_var(p_sorted, v_sorted, alpha):
-    if alpha > 0.999:
-        return v_sorted[-1]
     p = 0.
-    i = 0
-    while p < alpha:
-        p += p_sorted[i]
-        i += 1
+    for p_, v_ in zip(p_sorted, v_sorted):
+        p += p_
+        if p >= alpha:
+            return v_
+    # numerical 1 != 1
+    return v_sorted[-1]
 
-    if p == alpha:
-        var = v_sorted[i - 1]
+
+def single_alpha_to_cvar(p_sorted, v_sorted, alpha):
+    if alpha == 0:
+        return v_sorted[0]
+
+    print('using new implementation')
+
+    p = 0.
+    cv = 0.
+    for p_, v_ in zip(p_sorted, v_sorted):
+        if p + p_ >= alpha:
+            cv += (p - alpha)*v_
+        else:
+            p += p_
+            cv += p_*v_
+
+    return cv / alpha
+
+
+# ===================================================================
+# Single from transitions:
+# gets the desired values from transition distributions
+# ===================================================================
+
+def single_var_yc_xis_from_t(transition_p, t_atoms, var_values, alpha):
+    """
+    Compute VaR, CVaR and xi values, using uniform last probabilities.
+
+    """
+
+    info = extract_distribution(transition_p, t_atoms, var_values)
+
+    xis = np.zeros(len(transition_p))
+    p = 0.
+    cv = 0.
+    v = 0.
+
+    v_alpha = single_alpha_to_var([p_ for p_, i_t, v in info], [v for p_, i_t, v in info], alpha)
+    ix = 0
+    for ix, (p_, t_i, v) in enumerate(info):
+        if v >= v_alpha:
+            cv += (alpha - p) * v
+            break
+        else:
+            xis[t_i] += p_
+            cv += p_ * v
+            p += p_
+
+    # uniform last atom
+    last_v_info = []
+    while v == v_alpha and ix < len(info)-1:
+        last_v_info.append(info[ix])
+        ix += 1
+        p_, t_i, v = info[ix]
+    last_v_p = np.array([p_ for p_, t_i, v in last_v_info])
+    fractions = last_v_p/np.sum(last_v_p)
+
+    for fr, (p_, t_i, v) in zip(fractions, last_v_info):
+        xis[t_i] += (alpha - p) * fr
+
+    return v_alpha, cv, xis / transition_p
+
+
+def single_yc_lp_from_t(transition_p, t_atoms, yc_values, alpha, xis=False):
+    """
+    Create LP:
+    min Sum p_t * I
+
+    0 <= xi <= 1/alpha
+    Sum p_t * xi == 1
+
+    I = max{y_cvar}
+
+    return y_cvar[alpha]
+    """
+    if alpha == 0:
+        return 0.
+
+    nb_transitions = len(transition_p)
+
+    Xi = [LpVariable('xi_' + str(i)) for i in range(nb_transitions)]
+    I = [LpVariable('I_' + str(i)) for i in range(nb_transitions)]
+
+    prob = LpProblem(name='tamar')
+
+    for xi in Xi:
+        prob.addConstraint(0 <= xi)
+        prob.addConstraint(xi <= 1./alpha)
+    prob.addConstraint(sum([xi*p for xi, p in zip(Xi, transition_p)]) == 1)
+
+    for xi, i, yc, atoms in zip(Xi, I, yc_values, t_atoms):
+        last_yc = 0.
+        f_params = []
+        atom_p = atoms[1:] - atoms[:-1]
+        for ix in range(len(yc)):
+            # linear interpolation as a solution to 'y = kx + q'
+            k = (yc[ix]-last_yc)/atom_p[ix]
+
+            q = last_yc - k * atoms[ix]
+            prob.addConstraint(i >= k * xi * alpha + q)
+            f_params.append((k, q))
+            last_yc = yc[ix]
+
+    # opt criterion
+    prob.setObjective(sum([i * p for i, p in zip(I, transition_p)]))
+
+    prob.solve()
+
+    if xis:
+        return value(prob.objective), [value(xi)*alpha for xi in Xi]
     else:
-        var = v_sorted[i]
+        return value(prob.objective)
+
+
+# ===================================================================
+# Distribution <=> vector
+# ===================================================================
+
+def yc_to_var(atoms, y_cvar):
+    """ yCVaR -> distribution. Outputs same atoms as input. """
+    last = 0.
+    var = np.zeros_like(y_cvar)
+
+    for i in range(len(atoms) - 1):
+        p = atoms[i + 1] - atoms[i]
+        ddy = (y_cvar[i] - last) / p
+        var[i] = ddy
+        last = y_cvar[i]
 
     return var
+
+
+def var_to_ycvar(p_sorted, v_sorted):  # TODO: name
+    yc = np.zeros_like(p_sorted)
+    yc_last = 0
+    for i in range(len(yc)):
+        yc[i] = yc_last + p_sorted[i] * v_sorted[i]
+        yc_last = yc[i]
+    return yc
 
 
 def var_vector(atoms, p_sorted, v_sorted):
@@ -79,25 +210,6 @@ def var_vector(atoms, p_sorted, v_sorted):
     assert abs(p - 1) < 1e-5
 
     return v
-
-
-def single_cvar_from_alpha(p_sorted, v_sorted, alpha):
-    # TODO: check
-    if alpha == 0:
-        return v_sorted[0]
-    if alpha > 0.99999:
-        return np.dot(p_sorted, v_sorted)
-    p = 0.
-    i = 0
-    while p < alpha:
-        p += p_sorted[i]
-        i += 1
-    i -= 1
-    p = p - p_sorted[i]
-    p_rest = alpha - p
-    cvar = (np.dot(p_sorted[:i], v_sorted[:i]) + p_rest * v_sorted[i]) / alpha
-
-    return cvar
 
 
 def ycvar_vector(atoms, p_sorted, v_sorted):
@@ -142,106 +254,27 @@ def ycvar_vector(atoms, p_sorted, v_sorted):
     return y_cvar
 
 
-def yc_to_var(atoms, y_cvar):
-    """ yCVaR -> distribution """
-    last = 0.
-    var = np.zeros_like(y_cvar)
-
-    for i in range(len(atoms)-1):
-        p = atoms[i+1] - atoms[i]
-        ddy = (y_cvar[i] - last) / p
-        var[i] = ddy
-        last = y_cvar[i]
-
-    return var
+# ===================================================================
+# Transitions => vector
+# ===================================================================
 
 
-def var_to_ycvar(p_sorted, v_sorted):
-    yc = np.zeros_like(p_sorted)
-    yc_last = 0
-    for i in range(len(yc)):
-        yc[i] = yc_last + p_sorted[i]*v_sorted[i]
-        yc_last = yc[i]
-    return yc
-
-
-def v_yc_from_transitions_lp(atoms, transition_p, yc_values):
+def v_yc_from_t_lp(atoms, transition_p, yc_values):
     """ CVaR computation by dual decomposition LP. """
-    raise NotImplementedError("TODO: -> atoms")
-    y_cvar = [single_yc_lp(atoms, transition_p, yc_values, alpha) for alpha in atoms[1:]]
+    y_cvar = [single_yc_lp_from_t(atoms, transition_p, yc_values, alpha) for alpha in atoms[1:]]
     # extract vars:
     var = yc_to_var(atoms, y_cvar)
 
     return var, y_cvar
 
 
-def single_yc_lp(transition_p, atom_values, yc_values, alpha, xis=False):
-    """
-    Create LP:
-    min Sum p_t * I
-
-    0 <= xi <= 1/alpha
-    Sum p_t * xi == 1
-
-    I = max{y_cvar}
-
-    return y_cvar[alpha]
-    """
-    if alpha == 0:
-        return 0.
-
-    nb_transitions = len(transition_p)
-
-    Xi = [LpVariable('xi_' + str(i)) for i in range(nb_transitions)]
-    I = [LpVariable('I_' + str(i)) for i in range(nb_transitions)]
-
-    prob = LpProblem(name='tamar')
-
-    for xi in Xi:
-        prob.addConstraint(0 <= xi)
-        prob.addConstraint(xi <= 1./alpha)
-    prob.addConstraint(sum([xi*p for xi, p in zip(Xi, transition_p)]) == 1)
-
-    for xi, i, yc, atoms in zip(Xi, I, yc_values, atom_values):
-        last_yc = 0.
-        f_params = []
-        atom_p = atoms[1:] - atoms[:-1]
-        for ix in range(len(yc)):
-            # linear interpolation as a solution to 'y = kx + q'
-            k = (yc[ix]-last_yc)/atom_p[ix]
-
-            q = last_yc - k * atoms[ix]
-            prob.addConstraint(i >= k * xi * alpha + q)
-            f_params.append((k, q))
-            last_yc = yc[ix]
-
-    # opt criterion
-    prob.setObjective(sum([i * p for i, p in zip(I, transition_p)]))
-
-    prob.solve()
-
-    if xis:
-        return value(prob.objective), [value(xi)*alpha for xi in Xi]
-    else:
-        return value(prob.objective)
-
-
-# def v_yc_from_transitions_lp(atoms, transition_p, var_values):
-#     """ CVaR computation by dual decomposition LP. """
-#     # TODO: single LP
-#     y_cvar = [tamar_lp_single(atoms, transition_p, var_values, alpha) for alpha in atoms[1:]]
-#     # extract vars:
-#     var = ycvar_to_var(atoms, y_cvar)
-#
-#     return var, y_cvar
-
-
-def v_yc_from_transitions_sort(atoms, transition_p, var_values, t_atoms):
+def v_yc_from_t(atoms, transition_p, var_values, t_atoms):
     """
     CVaR computation by using underlying distributions.
+    :param atoms: points of interest
     :param transition_p:
     :param var_values: (transitions, nb_atoms)
-    :param atoms: (transitions, nb_atoms+1) e.g. [0, 0.25, 0.5, 1]
+    :param t_atoms: (transitions, nb_atoms+1) e.g. [0, 0.25, 0.5, 1]
     :return:
     """
     # 0) weight by transition probs
@@ -265,29 +298,26 @@ def v_0_from_transitions(V, transitions, gamma):
     return min([t.reward + gamma*V[t.state.y, t.state.x].c_0 for t in transitions])
 
 
-def extract_distribution(transitions, var_values, atom_p):
+def extract_distribution(transition_p, t_atoms, var_values):
     """
-
-    :param transitions:
-    :param var_values:
-    :param atom_p:
     :return: sorted list of tuples (probability, index, var)
     """
-    info = np.empty(var_values.shape, dtype=object)
-    for i_t, t in enumerate(transitions):
-        for i_v, v, p_ in zip(range(len(var_values[i_t])), var_values[i_t], atom_p):
-            info[i_t, i_v] = (p_ * t.prob, i_t, v)
+    info = []
+    for i_t, t_p in enumerate(transition_p):
+        for v, p_ in zip(var_values[i_t], t_atoms[i_t][1:]-t_atoms[i_t][:-1]):
+            info.append((p_ * t_p, i_t, v))
 
-    info = list(info.flatten())
     info.sort(key=lambda x: x[-1])
     return info
 
 
-if __name__ == '__main__':
+# ===================================================================
+# Other
+# ===================================================================
 
-    # print(yc_vector([0.25, 0.5, 1.], [0.75, 0.25], [1., 2.]))
-    print(single_var_to_alpha(-2, [1 / 3, 1 / 3, 1 / 3], [-2, -0, 1]))
-    print(single_var_to_alpha(-1, [1 / 3, 1 / 3, 1 / 3], [-2, -0, 1]))
-    print(single_var_to_alpha(0, [1 / 3, 1 / 3, 1 / 3], [-2, -0, 1]))
-    print(single_var_to_alpha(1, [1 / 3, 1 / 3, 1 / 3], [-2, -0, 1]))
-    print(single_var_to_alpha(2, [1 / 3, 1 / 3, 1 / 3], [-2, -0, 1]))
+def var_cvar_from_samples(samples, alpha):
+    samples = np.sort(samples)
+    alpha_ix = int(np.round(alpha * len(samples)))
+    var = samples[alpha_ix - 1]
+    cvar = np.mean(samples[:alpha_ix])
+    return var, cvar

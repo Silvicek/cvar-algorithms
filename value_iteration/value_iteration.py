@@ -5,8 +5,8 @@ import numpy as np
 import copy
 
 # use LP when computing CVaRs
-TAMAR_LP = True
-# TAMAR_LP = False
+# TAMAR_LP = True
+TAMAR_LP = False
 
 WASSERSTEIN = False
 # WASSERSTEIN = True
@@ -81,42 +81,18 @@ class ValueFunction:
         transition_p = [t.prob for t in self.transitions(y, x, a)]
         atom_values = [self.V[t.state.y, t.state.x].atoms for t in self.transitions(y, x, a)]
         yc = self.transition_ycs(y, x, a)
-        return cvar_computation.single_yc_lp(transition_p, atom_values, yc, alpha, xis=True)
+        return cvar_computation.single_yc_lp_from_t(transition_p, atom_values, yc, alpha, xis=True)
 
     def single_var_yc_xis(self, y, x, a, alpha):
         """
         Compute VaR, CVaR and xi values in O(nlogn)
-        :param y:
-        :param x:
-        :param a:
-        :param alpha:
-        :return: var, cvar, xis
         """
-        # TODO: O(n)
 
         transitions = list(self.transitions(y, x, a))
         var_values = self.transition_vars(y, x, a)
-
-        info = extract_distribution(transitions, var_values,
-                                    [self.V[tr.state.y, tr.state.x].atom_p for tr in transitions])
-
-        xis = np.zeros(len(transitions))
-        p = 0.
-        cv = 0.
-        v = 0.
-
-        # TODO: unify with util
-        for p_, i, v in info:
-            if p + p_ >= alpha:
-                xis[i] += alpha-p
-                cv += (alpha-p) * v
-                break
-            else:
-                xis[i] += p_
-                cv += p_ * v
-                p += p_
-
-        return v, cv, xis
+        transition_p = [t.prob for t in transitions]
+        t_atoms = [self.V[t.state.y, t.state.x].atoms for t in transitions]
+        return cvar_computation.single_var_yc_xis_from_t(transition_p, t_atoms, var_values, alpha)
 
     def y_var(self, y, x, a, var):
         """ E[(Z-var)^-] + yvar"""
@@ -233,19 +209,19 @@ class MarkovState:
         self.nb_atoms = len(self.yC)
 
     def cvar_alpha(self, alpha):
-        return cvar_computation.single_cvar_from_alpha(self.atom_p, self.var, alpha)
+        return cvar_computation.single_alpha_to_cvar(self.atom_p, self.var, alpha)
 
     def expected_value(self):
         return np.dot(self.atom_p, self.var)
 
     def compute_cvar_by_sort(self, transition_p, var_values, t_atoms):
-        return cvar_computation.v_yc_from_transitions_sort(self.atoms, transition_p, var_values, t_atoms)
+        return cvar_computation.v_yc_from_t(self.atoms, transition_p, var_values, t_atoms)
 
     def compute_wasserstein(self, transition_p, var_values):
         raise NotImplementedError("Waiting for transfer from lp_compare and fix.")
 
     def compute_cvar_by_lp(self, transition_p, var_values):
-        return cvar_computation.v_yc_from_transitions_lp(self.atoms, transition_p, var_values)
+        return cvar_computation.v_yc_from_t_lp(self.atoms, transition_p, var_values)
 
 
 def value_update(world, V, id=0, figax=None):
@@ -264,7 +240,7 @@ def value_update(world, V, id=0, figax=None):
 
 
 def converged(V, V_, world):
-    eps = 1e-5
+    eps = 1e-6
     max_val = eps
     max_state = None
     for s in world.states():
@@ -313,9 +289,9 @@ if __name__ == '__main__':
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== VI setup
-    # V = value_iteration(world, max_iters=1000)
-    # pickle.dump(V, open('../files/vi.pkl', mode='wb'))
-    V = pickle.load(open('../files/vi.pkl', 'rb'))
+    V = value_iteration(world, max_iters=1000)
+    pickle.dump(V, open('../files/vi.pkl', mode='wb'))
+    # V = pickle.load(open('../files/vi.pkl', 'rb'))
 
     for alpha in np.arange(0.05, 1, 0.05):
         print(alpha)

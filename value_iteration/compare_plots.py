@@ -123,8 +123,8 @@ def plot(*solutions, legend=True):
     #     ax.plot(s_range, cv)
     #
     var_at_atoms = cvar_computation.var_vector(atoms, ex_p, ex_v)
-    a = np.array([cvar_computation.single_var_to_alpha(s, atom_p, var_at_atoms) for s in s_range])
-    cv = [cvar_computation.single_cvar_from_alpha(atom_p, ss, alpha) for alpha in a]
+    a = np.array([cvar_computation.single_var_to_alpha(atom_p, var_at_atoms, s) for s in s_range])
+    cv = [cvar_computation.single_alpha_to_cvar(atom_p, ss, alpha) for alpha in a]
     ax.plot(s_range, cv)
     # ax.set_title('CVaR(s)')
 
@@ -245,9 +245,9 @@ if __name__ == '__main__':
     print(var_values)
     print('-----------------------')
 
-    ss, _ = cvar_computation.v_yc_from_transitions_sort(atoms, transition_p, var_values)
+    ss, _ = cvar_computation.v_yc_from_t(atoms, transition_p, var_values)
     # wm = wasserstein_median()
-    tam, _ = cvar_computation.v_yc_from_transitions_lp(atoms, transition_p, var_values)
+    tam, _ = cvar_computation.v_yc_from_t_lp(atoms, transition_p, var_values)
 
     ex_p, ex_v = exact_pv()
 
