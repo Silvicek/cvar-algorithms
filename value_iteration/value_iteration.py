@@ -30,7 +30,8 @@ class ValueFunction:
             t = list(self.transitions(y, x, a))
 
             if TAMAR_LP:
-                v, yc = self.V[y, x].compute_cvar_by_lp([t_.prob for t_ in t], self.transition_ycs(y, x, a))
+                v, yc = self.V[y, x].compute_cvar_by_lp([t_.prob for t_ in t], self.transition_ycs(y, x, a),
+                                                        [self.V[tr.state.y, tr.state.x].atoms for tr in t])
             elif WASSERSTEIN:
                 v, yc = self.V[y, x].compute_wasserstein([t_.prob for t_ in t], self.transition_vars(y, x, a))
             else:
@@ -163,7 +164,6 @@ def extract_distribution(transitions, var_values, atom_ps):
 class MarkovState:
 
     def __init__(self):
-        self.nb_atoms = NB_ATOMS  # TODO: make property
         self.yC = np.zeros(NB_ATOMS)
         self.atoms = spaced_atoms(self.nb_atoms, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
         self.atom_p = self.atoms[1:] - self.atoms[:-1]  # [0.25, 0.25, 0.5]
@@ -189,6 +189,10 @@ class MarkovState:
     def var(self):
         return cvar_computation.yc_to_var(self.atoms, self.yC)
 
+    @property
+    def nb_atoms(self):
+        return len(self.yC)
+
     def increase_precision(self, eps):
         """ Bound error by adding atoms. Follows the adaptive procedure from RSRDM. """
         new_atoms = []
@@ -206,8 +210,6 @@ class MarkovState:
 
         self.yC = np.hstack((v_0*np.array(new_atoms), self.yC))
 
-        self.nb_atoms = len(self.yC)
-
     def cvar_alpha(self, alpha):
         return cvar_computation.single_alpha_to_cvar(self.atom_p, self.var, alpha)
 
@@ -220,8 +222,8 @@ class MarkovState:
     def compute_wasserstein(self, transition_p, var_values):
         raise NotImplementedError("Waiting for transfer from lp_compare and fix.")
 
-    def compute_cvar_by_lp(self, transition_p, var_values):
-        return cvar_computation.v_yc_from_t_lp(self.atoms, transition_p, var_values)
+    def compute_cvar_by_lp(self, transition_p, t_ycs, t_atoms):
+        return cvar_computation.v_yc_from_t_lp(self.atoms, transition_p, t_ycs, t_atoms)
 
 
 def value_update(world, V, id=0, figax=None):
@@ -229,18 +231,12 @@ def value_update(world, V, id=0, figax=None):
     V_ = copy.deepcopy(V)
     for s in world.states():
         V_.update(s.y, s.x)
-        # if id >=28 and s.y == 2 and s.x == 0:
-        #     import matplotlib.pyplot as plt
-        #     plt.ion()
-        #     V.V[2, 0].plot(show=False, figax=figax)
-        #     if id > 43:
-        #         plt.pause(100)
 
     return V_
 
 
 def converged(V, V_, world):
-    eps = 1e-6
+    eps = 1e-8
     max_val = eps
     max_state = None
     for s in world.states():
@@ -259,17 +255,17 @@ def converged(V, V_, world):
     return True
 
 
-def value_iteration(world, max_iters=1e3):
-    V = ValueFunction(world)
+def value_iteration(world, V=None, max_iters=1e3):
+    if V is None:
+        V = ValueFunction(world)
     i = 0
-    figax=None
+    figax = None
     while True:
         if i == 28:
             import matplotlib.pyplot as plt
             figax = plt.subplots(1, 2)
         V_ = value_update(world, V, i, figax)
-        # if i % 10 == 0:
-        #     V_.V[2, 3].plot()
+
         if (converged(V, V_, world) and i != 0) or i > max_iters:
             print("value fully learned after %d iterations" % (i,))
             break
@@ -283,14 +279,16 @@ def value_iteration(world, max_iters=1e3):
 if __name__ == '__main__':
     import pickle
     from plots.grid_plot_machine import InteractivePlotMachine
-    # world = GridWorld(10, 15, random_action_p=0.05)
+    # world = GridWorld(10, 15, random_action_p=0.1)
     world = GridWorld(50, 60, random_action_p=.05)  # Tamar
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== VI setup
+    # V = pickle.load(open('../files/vi_60_1e6.pkl', 'rb'))
+    # V = value_iteration(world, V, max_iters=1000)
     V = value_iteration(world, max_iters=1000)
-    pickle.dump(V, open('../files/vi.pkl', mode='wb'))
+    pickle.dump(V, open('../files/vi_1e8_full.pkl', mode='wb'))
     # V = pickle.load(open('../files/vi.pkl', 'rb'))
 
     for alpha in np.arange(0.05, 1, 0.05):

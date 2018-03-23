@@ -5,6 +5,10 @@ import numpy as np
 from plots.grid_plot_machine import InteractivePlotMachine
 
 
+atoms = spaced_atoms(NB_ATOMS, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
+atom_p = atoms[1:] - atoms[:-1]  # [0.25, 0.25, 0.5]
+
+
 class ActionValueFunction:
 
     def __init__(self, world):
@@ -16,7 +20,7 @@ class ActionValueFunction:
             self.Q[ix] = MarkovState()
 
     def update_safe(self, x, a, x_, r, beta, id=None):
-        # 'sampling'
+        """ TD update that ensures yCVaR convexity. """
         V_x = self.sup_q(x_)
 
         # TODO: deal with 0, 1
@@ -56,7 +60,7 @@ class ActionValueFunction:
                     self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i-1] + ddy*atom_p[i])
 
     def update(self, x, a, x_, r, beta, id=None):
-        # 'sampling'
+        """ CVaR TD update. """
         V_x = self.sup_q(x_)
 
         # TODO: deal with 0, 1
@@ -83,7 +87,7 @@ class ActionValueFunction:
                 self.Q[x.y, x.x, a].yC[i] = yCn
 
     def next_action_alpha(self, x, alpha):
-        yc = [self.Q[x.y, x.x, a].cvar_alpha(alpha) for a in self.world.ACTIONS]
+        yc = [self.Q[x.y, x.x, a].yc_alpha(alpha) for a in self.world.ACTIONS]
         return np.argmax(yc)
 
     def next_action_s(self, x, s):
@@ -110,6 +114,24 @@ class ActionValueFunction:
                 break
         return self.Q[x.x, x.y, a].V[i-1]
 
+    def optimal_path(self, alpha):
+        """ Optimal deterministic path. """
+        from policy_improvement.policies import VarBasedQPolicy
+        policy = VarBasedQPolicy(self, alpha)
+        s = self.world.initial_state
+        states = [s]
+        t = Transition(s, 0, 0)
+        while s not in world.goal_states:
+            a = policy.next_action(t)
+            t = max(self.world.transitions(s)[a], key=lambda t: t.prob)
+            s = t.state
+            if s in states:
+                print(s, world.ACTION_NAMES[a], end='')
+                raise ZeroDivisionError()
+            states.append(s)
+            print(s, world.ACTION_NAMES[a])
+        return states
+
 
 def is_ordered(v):
     for i in range(1, len(v)):
@@ -126,8 +148,8 @@ def is_convex(yc):
 class MarkovState:
 
     def __init__(self):
-        self.V = np.zeros(NB_ATOMS)
-        self.yC = np.zeros(NB_ATOMS)
+        self.V = np.zeros(NB_ATOMS)  # VaR estimate
+        self.yC = np.zeros(NB_ATOMS)  # CVaR estimate
 
     def plot(self, show=True, ax=None):
         import matplotlib.pyplot as plt
@@ -175,6 +197,7 @@ class MarkovState:
         return cvar_computation.yc_to_var(atoms, self.yC)
 
 
+
 def q_learning(world, alpha, max_episodes=2e3, max_episode_length=1e2):
     Q = ActionValueFunction(world)
 
@@ -185,7 +208,7 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=1e2):
     e = 0
     while e < max_episodes:
         if e % 10 == 0:
-            print(e, beta)
+            print("e:{}, beta:{}".format(e, beta))
             beta *= 0.995
         x = world.initial_state
         a = eps_greedy(Q.next_action_alpha(x, alpha), eps, world.ACTIONS)
@@ -197,7 +220,6 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=1e2):
             x_, r = t.state, t.reward
 
             Q.update(x, a, x_, r, beta, (e, i))
-            # Q.update_safe(x, a, x_, r, beta, (e, i))
 
             s = (s-r)/gamma
             x = x_
@@ -243,21 +265,20 @@ def q_to_v_exp(Q):
     return np.max(np.array([Q.Q[ix].expected_value() for ix in np.ndindex(Q.Q.shape)]).reshape(Q.Q.shape), axis=-1)
 
 if __name__ == '__main__':
-
+    np.random.seed(2)
+    import pickle
     # world = GridWorld(1, 3, random_action_p=0.3)
     world = GridWorld(10, 15, random_action_p=0.1)
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== PI setup
-    alpha = 0.1
+    alpha = 0.5
     Q = q_learning(world, alpha, max_episodes=20000)
-    # Q = pseudo_q_learning(world, 10000)
-    import pickle
     pickle.dump(Q, open("../files/q.pkl", 'wb'))
     # Q = pickle.load(open("../files/q.pkl", 'rb'))
 
-    pm = InteractivePlotMachine(world, Q, action_value=True)
+    pm = InteractivePlotMachine(world, Q, action_value=True, alpha=alpha)
     pm.show()
 
 

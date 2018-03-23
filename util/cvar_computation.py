@@ -45,7 +45,7 @@ def single_alpha_to_cvar(p_sorted, v_sorted, alpha):
     if alpha == 0:
         return v_sorted[0]
 
-    print('using new implementation')
+    # TODO: check
 
     p = 0.
     cv = 0.
@@ -259,9 +259,9 @@ def ycvar_vector(atoms, p_sorted, v_sorted):
 # ===================================================================
 
 
-def v_yc_from_t_lp(atoms, transition_p, yc_values):
+def v_yc_from_t_lp(atoms, transition_p, t_yc, t_atoms):
     """ CVaR computation by dual decomposition LP. """
-    y_cvar = [single_yc_lp_from_t(atoms, transition_p, yc_values, alpha) for alpha in atoms[1:]]
+    y_cvar = [single_yc_lp_from_t(transition_p, t_atoms, t_yc, alpha) for alpha in atoms[1:]]
     # extract vars:
     var = yc_to_var(atoms, y_cvar)
 
