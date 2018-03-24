@@ -51,15 +51,21 @@ class ValueFunction:
                                 for a in self.world.ACTIONS])
 
         # check for error bound
-        eps = 1.
-        c_0 = v_a[best_args[0], 0]
-        if c_0 - self.V[y, x].c_0 > eps:
-            # if deep and self.V[y, x].nb_atoms < 100:
-            if deep:
-                self.V[y, x].increase_precision(eps)
-                self.update(y, x, False)
+        # eps = 1.
+        # c_0 = v_a[best_args[0], 0]
+        # if c_0 - self.V[y, x].c_0 > eps:
+        #     # if deep and self.V[y, x].nb_atoms < 100:
+        #     if deep:
+        #         self.V[y, x].increase_precision(eps)
+        #         self.update(y, x, False)
 
     def next_action(self, y, x, alpha):
+        if alpha == 0:
+            print('alpha=0')
+            a_best = max(self.world.ACTIONS,
+                         key=lambda a:cvar_computation.v_0_from_transitions(self.V, list(self.transitions(y, x, a)), gamma))
+            return a_best, np.zeros(len(list(self.transitions(y, x, a_best))))
+
         assert alpha != 0
 
         best = (-1e6, 0, 0)
@@ -266,17 +272,19 @@ def value_iteration(world, V=None, max_iters=1e3):
 if __name__ == '__main__':
     import pickle
     from plots.grid_plot_machine import InteractivePlotMachine
-    # world = GridWorld(10, 15, random_action_p=0.1)
-    world = GridWorld(50, 60, random_action_p=.05)  # Tamar
+
+    np.random.seed(2)  # 10, 15
+    world = GridWorld(10, 15, random_action_p=0.1)
+    # world = GridWorld(50, 60, random_action_p=.05)  # Tamar
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== VI setup
-    V = pickle.load(open('../files/vi_1e8_full.pkl', 'rb'))
+    # V = pickle.load(open('../files/vi_1e8_full.pkl', 'rb'))
     # V = value_iteration(world, V, max_iters=1000)
     # V = value_iteration(world, max_iters=1000)
-    # pickle.dump(V, open('../files/vi_1e8_full.pkl', mode='wb'))
-    # V = pickle.load(open('../files/vi.pkl', 'rb'))
+    # pickle.dump(V, open('../files/vi_1015_40.pkl', mode='wb'))
+    V = pickle.load(open('../files/vi_1015_40.pkl', 'rb'))
 
     for alpha in np.arange(0.05, 1, 0.05):
         print(alpha)

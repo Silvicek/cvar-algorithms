@@ -20,17 +20,12 @@ from pulp import *
 
 def single_var_to_alpha(p_sorted, v_sorted, s):
     """ """
-    e_min = 0
-    ix = 0
     alpha = 0
     for v, p in zip(v_sorted, p_sorted):
         if v > s:
+            # TODO: middle/linear interp
             break
-        else:
-            ix += 1
-            e_min += p*v
-            alpha += p
-
+        alpha += p
     return alpha
 
 
@@ -54,7 +49,8 @@ def single_alpha_to_cvar(p_sorted, v_sorted, alpha):
     cv = 0.
     for p_, v_ in zip(p_sorted, v_sorted):
         if p + p_ >= alpha:
-            cv += (p - alpha)*v_
+            cv += (alpha - p)*v_
+            break
         else:
             p += p_
             cv += p_*v_

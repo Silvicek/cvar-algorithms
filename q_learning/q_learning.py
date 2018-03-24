@@ -24,7 +24,6 @@ class ActionValueFunction:
         """ TD update that ensures yCVaR convexity. """
         V_x = self.joint_action_dist(x_)
 
-        # TODO: deal with 0, 1
         for v in V_x:
             for i, atom in enumerate(atoms[1:]):
                 V = self.Q[x.y, x.x, a].V[i]
@@ -64,7 +63,7 @@ class ActionValueFunction:
         """ CVaR TD update. """
         V_x = self.joint_action_dist(x_)
 
-        # TODO: deal with 0, 1
+        # TODO: vectorize/cythonize
         for iv, v in enumerate(V_x):
             for i, atom in enumerate(atoms[1:]):
                 V = self.Q[x.y, x.x, a].V[i]
@@ -92,8 +91,11 @@ class ActionValueFunction:
         return np.argmax(yc)
 
     def next_action_s(self, x, s):
-        yc = [self.Q[x.y, x.x, a].e_min_s(s) for a in self.world.ACTIONS]
-        return np.argmax(yc)
+        """
+        Select best action according to E[(Z-s)^-].
+        If multiple 0's, use yCVaR_0.
+        """
+        return max(self.world.ACTIONS, key=lambda a: (self.Q[x.y, x.x, a].e_min_s(s), self.Q[x.y, x.x, a].yC[0]))
 
     def joint_action_dist(self, x, return_yc=False):
         """
@@ -126,10 +128,11 @@ class ActionValueFunction:
 
     def optimal_path(self, alpha):
         """ Optimal deterministic path. """
-        from policy_improvement.policies import VarBasedQPolicy, XiBasedQPolicy
+        from policy_improvement.policies import VarBasedQPolicy, XiBasedQPolicy, NaiveQPolicy
         from util.runs import optimal_path
-        # policy = VarBasedQPolicy(self, alpha)
-        policy = XiBasedQPolicy(self, alpha)
+        policy = VarBasedQPolicy(self, alpha)
+        # policy = XiBasedQPolicy(self, alpha)
+        # policy = NaiveQPolicy(self, alpha)
         return optimal_path(self.world, policy)
 
 
@@ -194,11 +197,15 @@ class MarkovState:
         return last_v
 
     def e_min_s(self, s):
-        """ E[(V-s)^-] """
+        """ E[(V-s)^-] + ys.
+
+        Uses the actual VaR for th cutoff and yC->VaR for the expectation.
+        """
         e_min = 0
-        for p, v in zip(atom_p, self.V):
+
+        for p, v, v_yc in zip(atom_p, self.V, self.dist_from_yc()):
             if v < s:
-                e_min += p * (v - s)
+                e_min += p * v_yc
             else:
                 break
         return e_min
@@ -273,6 +280,7 @@ def eps_greedy(a, eps, action_space):
 def q_to_v_exp(Q):
     return np.max(np.array([Q.Q[ix].expected_value() for ix in np.ndindex(Q.Q.shape)]).reshape(Q.Q.shape), axis=-1)
 
+
 if __name__ == '__main__':
     np.random.seed(2)
     import pickle
@@ -284,12 +292,17 @@ if __name__ == '__main__':
 
     # =============== PI setup
     alpha = 0.1
-    Q = q_learning(world, alpha, max_episodes=2000)
-    pickle.dump(Q, open("../files/q.pkl", 'wb'))
-    # Q = pickle.load(open("../files/q.pkl", 'rb'))
+    # Q = q_learning(world, alpha, max_episodes=10000)
+    # pickle.dump(Q, open("../files/q.pkl", 'wb'))
+    Q = pickle.load(open("../files/q.pkl", 'rb'))
 
     pm = InteractivePlotMachine(world, Q, action_value=True, alpha=alpha)
     pm.show()
+
+    for alpha in np.arange(0.05, 1, 0.05):
+        print(alpha)
+        pm = InteractivePlotMachine(world, Q, action_value=True, alpha=alpha)
+        pm.show()
 
 
 

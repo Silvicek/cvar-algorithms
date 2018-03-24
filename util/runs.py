@@ -46,7 +46,7 @@ def optimal_path(world, policy):
         t = max(world.transitions(s)[a], key=lambda t: t.prob)
         s = t.state
         if s in states:
-            print(s, world.ACTION_NAMES[a], end='')
+            print("ERROR: path repeats {}, last action={}".format(s, world.ACTION_NAMES[a]))
             return states
         states.append(s)
     return states

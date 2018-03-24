@@ -214,7 +214,6 @@ class VarBasedQPolicy(Policy):
         else:
             self.s = (self.s - t.reward) / gamma
             a = self.Q.next_action_s(x, self.s)
-        print('s=', self.s)
         return a
 
     def reset(self):
@@ -238,7 +237,7 @@ class XiBasedQPolicy(Policy):
 
         if self.last_t is not None:
             last_s = self.Q.var_alpha(self.last_t.state, self.last_a, self.alpha)
-            s = (last_s - self.last_t.reward) / gamma
+            s = (last_s - t.reward) / gamma
             var_dist = self.Q.joint_action_dist_var(x)
             self.alpha = cvar_computation.single_var_to_alpha(self.Q.atom_p, var_dist, s)
 
@@ -252,3 +251,18 @@ class XiBasedQPolicy(Policy):
         self.alpha = self.orig_alpha
         self.last_t = None
 
+
+class NaiveQPolicy(Policy):
+    """ For Q-learning with CVaR. """
+    __name__ = 'VaR-based CVaR'
+
+    def __init__(self, Q, alpha):
+        self.Q = Q
+        self.alpha = alpha
+
+    def next_action(self, t):
+        x, r = t.state, t.reward
+
+        a = self.Q.next_action_alpha(x, self.alpha)
+
+        return a
