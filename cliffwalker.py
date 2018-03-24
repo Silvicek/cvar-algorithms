@@ -111,6 +111,10 @@ if __name__ == '__main__':
     from util.constants import *
     from plots.grid_plot_machine import grid_plot
     import matplotlib.pyplot as plt
+
+    world = GridWorld(40, 60)
+    grid_plot(world)
+    plt.show()
     for i in range(20):
         print('seed=', i)
         np.random.seed(i)

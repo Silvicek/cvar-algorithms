@@ -1,9 +1,12 @@
 """
 Different CVaR computations and conversions.
-Naming conventions: v=VaR, c=CVaR, yc=yCVaR, t=transition
+Naming conventions:
+
+v=VaR, c=CVaR, yc=yCVaR, t=transition
 
 single_: extract a single value from a distribution
 
+_from_t: extract the desired value from weighted list of distributions
 
 """
 import numpy as np

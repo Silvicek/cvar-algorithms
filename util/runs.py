@@ -34,3 +34,19 @@ def epoch(world, policy, max_iters=100, plot_machine=None):
         i += 1
 
     return S, A, R
+
+
+def optimal_path(world, policy):
+    """ Optimal deterministic path. """
+    s = world.initial_state
+    states = [s]
+    t = Transition(s, 0, 0)
+    while s not in world.goal_states:
+        a = policy.next_action(t)
+        t = max(world.transitions(s)[a], key=lambda t: t.prob)
+        s = t.state
+        if s in states:
+            print(s, world.ACTION_NAMES[a], end='')
+            return states
+        states.append(s)
+    return states

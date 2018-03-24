@@ -14,6 +14,7 @@ class ActionValueFunction:
     def __init__(self, world):
         self.world = world
         self.atoms = atoms
+        self.atom_p = self.atoms[1:] - self.atoms[:-1]
 
         self.Q = np.empty((world.height, world.width, len(world.ACTIONS)), dtype=object)
         for ix in np.ndindex(self.Q.shape):
@@ -21,7 +22,7 @@ class ActionValueFunction:
 
     def update_safe(self, x, a, x_, r, beta, id=None):
         """ TD update that ensures yCVaR convexity. """
-        V_x = self.sup_q(x_)
+        V_x = self.joint_action_dist(x_)
 
         # TODO: deal with 0, 1
         for v in V_x:
@@ -61,7 +62,7 @@ class ActionValueFunction:
 
     def update(self, x, a, x_, r, beta, id=None):
         """ CVaR TD update. """
-        V_x = self.sup_q(x_)
+        V_x = self.joint_action_dist(x_)
 
         # TODO: deal with 0, 1
         for iv, v in enumerate(V_x):
@@ -94,7 +95,7 @@ class ActionValueFunction:
         yc = [self.Q[x.y, x.x, a].e_min_s(s) for a in self.world.ACTIONS]
         return np.argmax(yc)
 
-    def sup_q(self, x, return_yc=False):
+    def joint_action_dist(self, x, return_yc=False):
         """
         Returns a distribution representing the value function at state x.
         Constructed by taking a supremum of yC over actions for each atom.
@@ -106,31 +107,30 @@ class ActionValueFunction:
         else:
             return cvar_computation.yc_to_var(atoms, yc)
 
+    def joint_action_dist_var(self, x):
+        """
+        Returns VaR estimates of the joint distribution.
+        Constructed by taking a supremum of yC over actions for each atom.
+        """
+        info = [max([(self.Q[x.y, x.x, a].yC[i], self.Q[x.y, x.x, a].V[i]) for a in self.world.ACTIONS]) for i in range(NB_ATOMS)]
+
+        return [ycv[1] for ycv in info]
+
     def var_alpha(self, x, a, alpha):
         # TODO: check
         i = 0
         for i in range(len(atoms)):
             if alpha < atoms[i]:
                 break
-        return self.Q[x.x, x.y, a].V[i-1]
+        return self.Q[x.y, x.x, a].V[i-1]
 
     def optimal_path(self, alpha):
         """ Optimal deterministic path. """
-        from policy_improvement.policies import VarBasedQPolicy
-        policy = VarBasedQPolicy(self, alpha)
-        s = self.world.initial_state
-        states = [s]
-        t = Transition(s, 0, 0)
-        while s not in world.goal_states:
-            a = policy.next_action(t)
-            t = max(self.world.transitions(s)[a], key=lambda t: t.prob)
-            s = t.state
-            if s in states:
-                print(s, world.ACTION_NAMES[a], end='')
-                raise ZeroDivisionError()
-            states.append(s)
-            print(s, world.ACTION_NAMES[a])
-        return states
+        from policy_improvement.policies import VarBasedQPolicy, XiBasedQPolicy
+        from util.runs import optimal_path
+        # policy = VarBasedQPolicy(self, alpha)
+        policy = XiBasedQPolicy(self, alpha)
+        return optimal_path(self.world, policy)
 
 
 def is_ordered(v):
@@ -183,6 +183,16 @@ class MarkovState:
         else:
             return self.yC[i-2] + alpha_portion * (self.yC[i-1] - self.yC[i-2])
 
+    def var_alpha(self, alpha):
+        """ VaR estimate of alpha. """
+        # TODO: check
+        last_v = self.V[0]
+        for p, v in zip(atoms[1:], self.V):
+            if p > alpha:
+                break
+            last_v = v
+        return last_v
+
     def e_min_s(self, s):
         """ E[(V-s)^-] """
         e_min = 0
@@ -197,8 +207,7 @@ class MarkovState:
         return cvar_computation.yc_to_var(atoms, self.yC)
 
 
-
-def q_learning(world, alpha, max_episodes=2e3, max_episode_length=1e2):
+def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
     Q = ActionValueFunction(world)
 
     # learning parameters
@@ -269,12 +278,13 @@ if __name__ == '__main__':
     import pickle
     # world = GridWorld(1, 3, random_action_p=0.3)
     world = GridWorld(10, 15, random_action_p=0.1)
+    # world = GridWorld(40, 60, random_action_p=0.1)
 
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== PI setup
-    alpha = 0.5
-    Q = q_learning(world, alpha, max_episodes=20000)
+    alpha = 0.1
+    Q = q_learning(world, alpha, max_episodes=2000)
     pickle.dump(Q, open("../files/q.pkl", 'wb'))
     # Q = pickle.load(open("../files/q.pkl", 'rb'))
 

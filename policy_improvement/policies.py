@@ -1,5 +1,7 @@
 import numpy as np
 from util.constants import gamma
+from util import cvar_computation
+
 
 class Policy:
     """ Abstract class representing different policies. """
@@ -32,32 +34,6 @@ class GreedyPolicy(Policy):
     def next_action(self, t):
         s = t.state
         return np.argmax(expected_value(self.Q[:, s.y, s.x]))
-
-
-class VarBasedQPolicy(Policy):
-    """ For Q-learning with CVaR. """
-    __name__ = 'VaR-based CVaR'
-
-    def __init__(self, Q, alpha):
-        self.Q = Q
-        self.alpha = alpha
-        self.s = None
-
-    def next_action(self, t):
-        x, r = t.state, t.reward
-
-        if self.s is None:
-            a = self.Q.next_action_alpha(x, self.alpha)
-            self.s = self.Q.var_alpha(x, a, self.alpha)
-        else:
-            self.s = (self.s - t.reward) / gamma
-            a = self.Q.next_action_s(x, self.alpha)
-        print('s=', self.s)
-        return a
-
-    def reset(self):
-        self.s = None
-
 
 class NaiveCvarPolicy(Policy):
     __name__ = 'Naive CVaR'
@@ -155,33 +131,6 @@ class AlphaBasedPolicy(Policy):
         self.a_old = None
 
 
-class VarBasedPolicy(Policy):
-    __name__ = 'VaR-based CVaR'
-
-    def __init__(self, Q, alpha):
-        self.Q = Q
-        self.alpha = alpha
-        self.var = None
-
-    def next_action(self, t):
-
-        action_distributions = self.Q[:, t.state.y, t.state.x]
-
-        if self.var is None:
-            cvars = cvar(action_distributions, self.alpha)
-            a = np.argmax(cvars)
-            self.var = action_distributions[a].var(self.alpha)
-        else:
-            self.var = np.clip((self.var - t.reward) / gamma, MIN_VALUE, MAX_VALUE)
-
-        a = np.argmax([d.exp_(self.var) for d in action_distributions])
-
-        return a
-
-    def reset(self):
-        self.var = None
-
-
 class TamarPolicy(Policy):
     __name__ = 'Tamar-like'
 
@@ -241,3 +190,65 @@ class TamarVarBasedPolicy(Policy):
 
     def reset(self):
         self.var = None
+
+# ==========================================
+# Q-learning
+# ==========================================
+
+
+class VarBasedQPolicy(Policy):
+    """ For Q-learning with CVaR. """
+    __name__ = 'VaR-based CVaR'
+
+    def __init__(self, Q, alpha):
+        self.Q = Q
+        self.alpha = alpha
+        self.s = None
+
+    def next_action(self, t):
+        x, r = t.state, t.reward
+
+        if self.s is None:
+            a = self.Q.next_action_alpha(x, self.alpha)
+            self.s = self.Q.var_alpha(x, a, self.alpha)
+        else:
+            self.s = (self.s - t.reward) / gamma
+            a = self.Q.next_action_s(x, self.s)
+        print('s=', self.s)
+        return a
+
+    def reset(self):
+        self.s = None
+
+
+class XiBasedQPolicy(Policy):
+    """ For Q-learning with CVaR. """
+    __name__ = 'VaR-based CVaR'
+
+    def __init__(self, Q, alpha):
+        self.Q = Q
+        self.alpha = alpha
+        self.orig_alpha = alpha
+
+        self.last_t = None
+        self.last_a = None
+
+    def next_action(self, t):
+        x, r = t.state, t.reward
+
+        if self.last_t is not None:
+            last_s = self.Q.var_alpha(self.last_t.state, self.last_a, self.alpha)
+            s = (last_s - self.last_t.reward) / gamma
+            var_dist = self.Q.joint_action_dist_var(x)
+            self.alpha = cvar_computation.single_var_to_alpha(self.Q.atom_p, var_dist, s)
+
+        a = self.Q.next_action_alpha(x, self.alpha)
+
+        self.last_t = t
+        self.last_a = a
+        return a
+
+    def reset(self):
+        self.alpha = self.orig_alpha
+        self.last_t = None
+

@@ -57,7 +57,6 @@ class ValueFunction:
             # if deep and self.V[y, x].nb_atoms < 100:
             if deep:
                 self.V[y, x].increase_precision(eps)
-                print('PRECISION:', self.V[y, x].nb_atoms, (y, x))
                 self.update(y, x, False)
 
     def next_action(self, y, x, alpha):
@@ -127,21 +126,9 @@ class ValueFunction:
     def optimal_path(self, alpha):
         """ Optimal deterministic path. """
         from policy_improvement.policies import TamarPolicy, TamarVarBasedPolicy
+        from util.runs import optimal_path
         policy = TamarPolicy(self, alpha)
-        # policy = TamarVarBasedPolicy(self, alpha)
-        s = self.world.initial_state
-        states = [s]
-        t = Transition(s, 0, 0)
-        while s not in world.goal_states:
-            a = policy.next_action(t)
-            t = max(self.world.transitions(s)[a], key=lambda t: t.prob)
-            s = t.state
-            if s in states:
-                print(s, world.ACTION_NAMES[a], end='')
-                raise ZeroDivisionError()
-            states.append(s)
-            print(s, world.ACTION_NAMES[a])
-        return states
+        return optimal_path(self.world, policy)
 
 
 def extract_distribution(transitions, var_values, atom_ps):
@@ -285,10 +272,10 @@ if __name__ == '__main__':
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # =============== VI setup
-    # V = pickle.load(open('../files/vi_60_1e6.pkl', 'rb'))
+    V = pickle.load(open('../files/vi_1e8_full.pkl', 'rb'))
     # V = value_iteration(world, V, max_iters=1000)
-    V = value_iteration(world, max_iters=1000)
-    pickle.dump(V, open('../files/vi_1e8_full.pkl', mode='wb'))
+    # V = value_iteration(world, max_iters=1000)
+    # pickle.dump(V, open('../files/vi_1e8_full.pkl', mode='wb'))
     # V = pickle.load(open('../files/vi.pkl', 'rb'))
 
     for alpha in np.arange(0.05, 1, 0.05):
