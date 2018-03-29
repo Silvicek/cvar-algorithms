@@ -162,7 +162,7 @@ class TamarPolicy(Policy):
         self.last_xis = None
 
 
-class TamarVarBasedPolicy(Policy):
+class TamarVarBasedPolicy(Policy):  # TODO: whats this? delete? X transform to Q-like var based
     __name__ = 'Tamar VaR-based CVaR'
 
     def __init__(self, V, alpha):

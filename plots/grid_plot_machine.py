@@ -69,6 +69,7 @@ class InteractivePlotMachine:
             self.fig, self.ax = grid_plot(world, img)
             self.fig.canvas.mpl_connect('button_press_event', self.handle_click_v)
 
+        self.ax.set_title("$\\alpha={:.2f}$".format(alpha))
         # Optimal path
         path = self.V.optimal_path(alpha)
         print(path)
@@ -93,6 +94,9 @@ class InteractivePlotMachine:
 
         self.V.V[y, x].plot(figax=(self.state_fig, self.state_ax))
 
+        # titles
+        self.state_fig.suptitle("(y={}, x={})".format(y, x))
+
     def handle_click_q(self, event):
         if event.xdata is None:
             return
@@ -115,6 +119,10 @@ class InteractivePlotMachine:
         self.state_ax[2].step(self.V.atoms, list(V_x) + [V_x[-1]], '--', where='post')
         self.state_ax[1].plot(self.V.atoms, np.insert(yc_x, 0, 0), '--')
 
+        # titles
+        self.state_fig.suptitle("(y={}, x={})".format(y, x))
+
+        # show
         self.state_fig.show()
 
     def _canvas_to_grid(self, xd, yd):

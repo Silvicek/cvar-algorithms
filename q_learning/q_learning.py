@@ -62,7 +62,7 @@ class ActionValueFunction:
     def update(self, x, a, x_, r, beta, id=None):
         """ CVaR TD update. """
         V_x = self.joint_action_dist(x_)
-
+        print('standard')
         # TODO: vectorize/cythonize
         for iv, v in enumerate(V_x):
             for i, atom in enumerate(atoms[1:]):
@@ -85,6 +85,68 @@ class ActionValueFunction:
                 # UPDATE CVaR
                 yCn = (1 - lr_yc) * yC + lr_yc * (atom*V + min(0, r+gamma*v - V))
                 self.Q[x.y, x.x, a].yC[i] = yCn
+                # print(atom*V + min(0, r+gamma*v - V), end=', ')
+        print(self.Q[x.y, x.x, a].yC)
+        quit()
+
+    def update_vectorized(self, x, a, x_, r, beta, id=None):
+        """ CVaR TD update. """
+        V_x = self.joint_action_dist(x_)
+        # print('vectorized')
+
+        for iv, v in enumerate(V_x):
+            V = np.array(self.Q[x.y, x.x, a].V)
+            yC = np.array(self.Q[x.y, x.x, a].yC)
+
+            # learning rates
+            lr_v = beta * atom_p[iv]  # p mirrors magnitude (for log-spaced)
+            lr_yc = beta * atom_p[iv]
+            # UPDATE VaR
+            indicator_mask = V >= r + gamma * v
+            self.Q[x.y, x.x, a].V += lr_v - indicator_mask * (lr_v / atoms[1:])
+
+            # UPDATE CVaR
+            yCn = (1 - lr_yc) * yC + lr_yc * (atoms[1:] * V + np.clip(r + gamma * v - V, None, 0))
+            self.Q[x.y, x.x, a].yC = yCn
+
+    def update_vectorized2(self, x, a, x_, r, beta, id=None):
+        """ CVaR TD update. """
+        V_x = self.joint_action_dist(x_)
+        # print('vectorized2')
+        # TODO: vector over v_x
+        V = np.array(self.Q[x.y, x.x, a].V)
+        yC = np.array(self.Q[x.y, x.x, a].yC)
+
+
+        lr_v = beta * atom_p[:, np.newaxis]
+        lr_yc = beta * atom_p[:, np.newaxis]
+
+        # row is a single atom update
+        # shape=(n, n)
+        indicator_mask = self.Q[x.y, x.x, a].V >= r + gamma * V_x[:, np.newaxis]
+
+        v_update = lr_v*(1 - indicator_mask * (lr_v / atoms[1:]))
+
+        self.Q[x.y, x.x, a].V += np.sum(v_update, axis=-1)
+
+        yCn = (1 - lr_yc) * yC + lr_yc * (atoms[1:] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0))
+        self.Q[x.y, x.x, a].yC = np.mean(yCn, axis=-1)
+
+
+        for iv, v in enumerate(V_x):
+            # V = np.array(self.Q[x.y, x.x, a].V)
+            # yC = np.array(self.Q[x.y, x.x, a].yC)
+            # learning rates
+            lr_v = beta * atom_p[iv]  # p mirrors magnitude (for log-spaced)
+            lr_yc = beta * atom_p[iv]
+            # UPDATE VaR
+            indicator_mask = self.Q[x.y, x.x, a].V >= r + gamma * v
+            self.Q[x.y, x.x, a].V += lr_v - indicator_mask * (lr_v / atoms[1:])
+
+            # UPDATE CVaR
+            yCn = (1 - lr_yc) * yC + lr_yc * (atoms[1:] * V + np.clip(r + gamma * v - V, None, 0))
+            self.Q[x.y, x.x, a].yC = yCn
+
 
     def next_action_alpha(self, x, alpha):
         yc = [self.Q[x.y, x.x, a].yc_alpha(alpha) for a in self.world.ACTIONS]
@@ -235,7 +297,8 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
             t = world.sample_transition(x, a)
             x_, r = t.state, t.reward
 
-            Q.update(x, a, x_, r, beta, (e, i))
+            # Q.update(x, a, x_, r, beta, (e, i))
+            Q.update_vectorized(x, a, x_, r, beta, (e, i))
 
             s = (s-r)/gamma
             x = x_
@@ -282,27 +345,26 @@ def q_to_v_exp(Q):
 
 
 if __name__ == '__main__':
-    np.random.seed(2)
+    import time
     import pickle
-    # world = GridWorld(1, 3, random_action_p=0.3)
+    np.random.seed(2)
+    start = time.time()
+
+    # ============================= new config
+    run_alpha = 0.1
     world = GridWorld(10, 15, random_action_p=0.1)
-    # world = GridWorld(40, 60, random_action_p=0.1)
+    Q = q_learning(world, run_alpha, max_episodes=5000)
+    print('time=', time.time() - start)
 
+    pickle.dump((world, Q), open('../files/q.pkl', mode='wb'))
+
+    # ============================= load
+    world, Q = pickle.load(open('../files/q.pkl', 'rb'))
+
+    # ============================= RUN
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
-
-    # =============== PI setup
-    alpha = 0.1
-    # Q = q_learning(world, alpha, max_episodes=10000)
-    # pickle.dump(Q, open("../files/q.pkl", 'wb'))
-    Q = pickle.load(open("../files/q.pkl", 'rb'))
-
-    pm = InteractivePlotMachine(world, Q, action_value=True, alpha=alpha)
-    pm.show()
 
     for alpha in np.arange(0.05, 1, 0.05):
         print(alpha)
-        pm = InteractivePlotMachine(world, Q, action_value=True, alpha=alpha)
+        pm = InteractivePlotMachine(world, Q, alpha=alpha, action_value=True)
         pm.show()
-
-
-
