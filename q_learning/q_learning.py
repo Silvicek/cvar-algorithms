@@ -93,7 +93,9 @@ class ActionValueFunction:
         """ CVaR TD update. """
         V_x = self.joint_action_dist(x_)
 
-        V = self.Q[x.y, x.x, a].V
+        V = np.array(self.Q[x.y, x.x, a].V)
+
+        mask = []
 
         for iv, v in enumerate(V_x):
 
@@ -108,21 +110,18 @@ class ActionValueFunction:
             # UPDATE VaR
             indicator_mask = V >= r + gamma * v
             self.Q[x.y, x.x, a].V += lr_v - indicator_mask * (lr_v / atoms[1:])
-        print(self.Q[x.y, x.x, a].yC, self.Q[x.y, x.x, a].V)
+
+
+            mask.append(indicator_mask)
+        print('mask=', np.array(mask))
+        print(1, self.Q[x.y, x.x, a].V, self.Q[x.y, x.x, a].yC)
         quit()
 
     def update_vectorized2(self, x, a, x_, r, beta, id=None):
         """ CVaR TD update. """
+        # TODO: log support
         V_x = self.joint_action_dist(x_)
 
-
-        # add atom - for testing shapes
-        # atoms2 = np.hstack((np.array([0]), np.array([0.1]), atoms[1:]))
-        # atom_p2 = atoms2[1:] - atoms2[:-1]
-        # V_x = np.hstack((np.array([V_x[0]]), V_x))
-
-
-        # print('vectorized2')
         V = np.array(self.Q[x.y, x.x, a].V)
         yC = np.array(self.Q[x.y, x.x, a].yC)
 
@@ -133,18 +132,17 @@ class ActionValueFunction:
         # shape=(n, n)
         indicator_mask = self.Q[x.y, x.x, a].V >= r + gamma * V_x[:, np.newaxis]
 
-        v_update = lr_v*(1 - indicator_mask * (lr_v / atoms[1:]))
+        v_update = lr_v - indicator_mask * (lr_v / atoms[1:])
 
         self.Q[x.y, x.x, a].V += np.sum(v_update, axis=0)
 
-        yCn = (1 - lr_yc) * yC + lr_yc * (atoms[1:] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0))
-        self.Q[x.y, x.x, a].yC = np.mean(yCn, axis=0)  # XXX: mean? or (1 - lr_yc) * yC + mean
+        yCn = atoms[1:] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0)
+        self.Q[x.y, x.x, a].yC = (1 - beta) * yC + beta * np.mean(yCn, axis=0)
 
-        # yCn = atoms2[1:, np.newaxis] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0)
-        # self.Q[x.y, x.x, a].yC = (1 - lr_yc) * yC + lr_yc * np.mean(yCn, axis=0)  # XXX: mean? or (1 - lr_yc) * yC + mean
-
-        print(self.Q[x.y, x.x, a].V, self.Q[x.y, x.x, a].yC)
-        quit()
+        # print(np.array(yC_updates), np.mean(yC_updates, axis=0))
+        # print(id, self.Q[x.y, x.x, a].yC)
+        # if (id == (0, 4)):
+        #     quit()
 
 
     def next_action_alpha(self, x, alpha):
