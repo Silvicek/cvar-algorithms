@@ -92,31 +92,39 @@ class ActionValueFunction:
     def update_vectorized(self, x, a, x_, r, beta, id=None):
         """ CVaR TD update. """
         V_x = self.joint_action_dist(x_)
-        # print('vectorized')
+
+        V = self.Q[x.y, x.x, a].V
 
         for iv, v in enumerate(V_x):
-            V = np.array(self.Q[x.y, x.x, a].V)
-            yC = np.array(self.Q[x.y, x.x, a].yC)
 
             # learning rates
             lr_v = beta * atom_p[iv]  # p mirrors magnitude (for log-spaced)
             lr_yc = beta * atom_p[iv]
+
+            # UPDATE CVaR
+            yCn = (1 - lr_yc) * self.Q[x.y, x.x, a].yC + lr_yc * (atoms[1:] * V + np.clip(r + gamma * v - V, None, 0))
+            self.Q[x.y, x.x, a].yC = yCn
+
             # UPDATE VaR
             indicator_mask = V >= r + gamma * v
             self.Q[x.y, x.x, a].V += lr_v - indicator_mask * (lr_v / atoms[1:])
-
-            # UPDATE CVaR
-            yCn = (1 - lr_yc) * yC + lr_yc * (atoms[1:] * V + np.clip(r + gamma * v - V, None, 0))
-            self.Q[x.y, x.x, a].yC = yCn
+        print(self.Q[x.y, x.x, a].yC, self.Q[x.y, x.x, a].V)
+        quit()
 
     def update_vectorized2(self, x, a, x_, r, beta, id=None):
         """ CVaR TD update. """
         V_x = self.joint_action_dist(x_)
+
+
+        # add atom - for testing shapes
+        # atoms2 = np.hstack((np.array([0]), np.array([0.1]), atoms[1:]))
+        # atom_p2 = atoms2[1:] - atoms2[:-1]
+        # V_x = np.hstack((np.array([V_x[0]]), V_x))
+
+
         # print('vectorized2')
-        # TODO: vector over v_x
         V = np.array(self.Q[x.y, x.x, a].V)
         yC = np.array(self.Q[x.y, x.x, a].yC)
-
 
         lr_v = beta * atom_p[:, np.newaxis]
         lr_yc = beta * atom_p[:, np.newaxis]
@@ -127,25 +135,16 @@ class ActionValueFunction:
 
         v_update = lr_v*(1 - indicator_mask * (lr_v / atoms[1:]))
 
-        self.Q[x.y, x.x, a].V += np.sum(v_update, axis=-1)
+        self.Q[x.y, x.x, a].V += np.sum(v_update, axis=0)
 
         yCn = (1 - lr_yc) * yC + lr_yc * (atoms[1:] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0))
-        self.Q[x.y, x.x, a].yC = np.mean(yCn, axis=-1)
+        self.Q[x.y, x.x, a].yC = np.mean(yCn, axis=0)  # XXX: mean? or (1 - lr_yc) * yC + mean
 
+        # yCn = atoms2[1:, np.newaxis] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0)
+        # self.Q[x.y, x.x, a].yC = (1 - lr_yc) * yC + lr_yc * np.mean(yCn, axis=0)  # XXX: mean? or (1 - lr_yc) * yC + mean
 
-        for iv, v in enumerate(V_x):
-            # V = np.array(self.Q[x.y, x.x, a].V)
-            # yC = np.array(self.Q[x.y, x.x, a].yC)
-            # learning rates
-            lr_v = beta * atom_p[iv]  # p mirrors magnitude (for log-spaced)
-            lr_yc = beta * atom_p[iv]
-            # UPDATE VaR
-            indicator_mask = self.Q[x.y, x.x, a].V >= r + gamma * v
-            self.Q[x.y, x.x, a].V += lr_v - indicator_mask * (lr_v / atoms[1:])
-
-            # UPDATE CVaR
-            yCn = (1 - lr_yc) * yC + lr_yc * (atoms[1:] * V + np.clip(r + gamma * v - V, None, 0))
-            self.Q[x.y, x.x, a].yC = yCn
+        print(self.Q[x.y, x.x, a].V, self.Q[x.y, x.x, a].yC)
+        quit()
 
 
     def next_action_alpha(self, x, alpha):
@@ -298,7 +297,8 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
             x_, r = t.state, t.reward
 
             # Q.update(x, a, x_, r, beta, (e, i))
-            Q.update_vectorized(x, a, x_, r, beta, (e, i))
+            # Q.update_vectorized(x, a, x_, r, beta, (e, i))
+            Q.update_vectorized2(x, a, x_, r, beta, (e, i))
 
             s = (s-r)/gamma
             x = x_
