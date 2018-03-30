@@ -10,7 +10,7 @@ gamma = 0.95
 
 
 # atom spacing
-NB_ATOMS = 20
+NB_ATOMS = 40
 LOG = False  # atoms are log-spaced
-SPACING = 2
+SPACING = 1.2
 

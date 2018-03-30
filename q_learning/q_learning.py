@@ -59,7 +59,7 @@ class ActionValueFunction:
                     ddy = (self.Q[x.y, x.x, a].yC[i-1] - self.Q[x.y, x.x, a].yC[i-2]) / atom_p[i-1] # TODO: check
                     self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i-1] + ddy*atom_p[i])
 
-    def update(self, x, a, x_, r, beta, id=None):
+    def update_naive(self, x, a, x_, r, beta, id=None):
         """ CVaR TD update. """
         V_x = self.joint_action_dist(x_)
         print('standard')
@@ -89,44 +89,15 @@ class ActionValueFunction:
         print(self.Q[x.y, x.x, a].yC)
         quit()
 
-    def update_vectorized(self, x, a, x_, r, beta, id=None):
+    def update(self, x, a, x_, r, beta, id=None):
         """ CVaR TD update. """
-        V_x = self.joint_action_dist(x_)
-
-        V = np.array(self.Q[x.y, x.x, a].V)
-
-        mask = []
-
-        for iv, v in enumerate(V_x):
-
-            # learning rates
-            lr_v = beta * atom_p[iv]  # p mirrors magnitude (for log-spaced)
-            lr_yc = beta * atom_p[iv]
-
-            # UPDATE CVaR
-            yCn = (1 - lr_yc) * self.Q[x.y, x.x, a].yC + lr_yc * (atoms[1:] * V + np.clip(r + gamma * v - V, None, 0))
-            self.Q[x.y, x.x, a].yC = yCn
-
-            # UPDATE VaR
-            indicator_mask = V >= r + gamma * v
-            self.Q[x.y, x.x, a].V += lr_v - indicator_mask * (lr_v / atoms[1:])
-
-
-            mask.append(indicator_mask)
-        print('mask=', np.array(mask))
-        print(1, self.Q[x.y, x.x, a].V, self.Q[x.y, x.x, a].yC)
-        quit()
-
-    def update_vectorized2(self, x, a, x_, r, beta, id=None):
-        """ CVaR TD update. """
-        # TODO: log support
         V_x = self.joint_action_dist(x_)
 
         V = np.array(self.Q[x.y, x.x, a].V)
         yC = np.array(self.Q[x.y, x.x, a].yC)
 
         lr_v = beta * atom_p[:, np.newaxis]
-        lr_yc = beta * atom_p[:, np.newaxis]
+        lr_yc = beta * atom_p
 
         # row is a single atom update
         # shape=(n, n)
@@ -137,13 +108,7 @@ class ActionValueFunction:
         self.Q[x.y, x.x, a].V += np.sum(v_update, axis=0)
 
         yCn = atoms[1:] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0)
-        self.Q[x.y, x.x, a].yC = (1 - beta) * yC + beta * np.mean(yCn, axis=0)
-
-        # print(np.array(yC_updates), np.mean(yC_updates, axis=0))
-        # print(id, self.Q[x.y, x.x, a].yC)
-        # if (id == (0, 4)):
-        #     quit()
-
+        self.Q[x.y, x.x, a].yC = (1 - beta) * yC + beta * np.average(yCn, axis=0, weights=lr_yc)
 
     def next_action_alpha(self, x, alpha):
         yc = [self.Q[x.y, x.x, a].yc_alpha(alpha) for a in self.world.ACTIONS]
@@ -294,9 +259,7 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
             t = world.sample_transition(x, a)
             x_, r = t.state, t.reward
 
-            # Q.update(x, a, x_, r, beta, (e, i))
-            # Q.update_vectorized(x, a, x_, r, beta, (e, i))
-            Q.update_vectorized2(x, a, x_, r, beta, (e, i))
+            Q.update(x, a, x_, r, beta, (e, i))
 
             s = (s-r)/gamma
             x = x_
