@@ -43,13 +43,13 @@ def policy_iteration(world):
 def q_learning(world, max_episodes=1e3, max_iters=100):
     Q = np.zeros((len(world.ACTIONS), world.height, world.width))
 
-    beta = 0.1  # learning rate
+    beta = 0.4  # learning rate
     eps = 0.5
 
     iter = 0
     while True:
-        if iter % 100 == 0:
-            beta = 1/max(1, iter/200)
+        if iter % 10 == 0:
+            beta *= 0.995
             print("{}: beta={}".format(iter, beta))
         # ==========================
         s = world.initial_state
@@ -168,11 +168,14 @@ def q_to_v_argmax(world, Q):
 
 
 if __name__ == '__main__':
+    import pickle
     np.random.seed(2)
-    world = GridWorld(40, 60, random_action_p=0.1)
+    world = GridWorld(10, 15, random_action_p=0.1)
 
     # Q = policy_iteration(world)
     # Q = value_iteration(world)
-    Q = q_learning(world, max_episodes=50000)
+    Q = q_learning(world, max_episodes=10000)
+
+    pickle.dump((world, Q), open('../files/models/exp_10_15.pkl', mode='wb'))
 
     show_fixed(world, q_to_v_argmax(world, Q), np.argmax(Q, axis=0))

@@ -3,9 +3,11 @@ from util.constants import gamma
 from util.runs import epoch
 from cliffwalker import *
 from plots.grid import PlotMachine
-from policy_improvement.policies import GreedyPolicy, TamarPolicy, TamarVarBasedPolicy
+from policy_improvement.policies import GreedyPolicy, XiBasedPolicy, TamarVarBasedPolicy
 from value_iteration import value_iteration
 from util import cvar_computation
+from value_iteration import ValueFunction, MarkovState
+
 
 
 def several_epochs(arg):
@@ -69,16 +71,14 @@ def exhaustive_stats(world, epochs, *args):
 
 
 if __name__ == '__main__':
-
+    import pickle
     world = GridWorld(10, 15, random_action_p=0.1)
 
     # =============== VI setup
-    V = value_iteration(world, max_iters=100)
-    alpha = 0.95
-    print(V.V[3, 0].cvar_alpha(alpha) / alpha)
+    world, V = pickle.load(open('../files/models/vi_10_15.pkl', 'rb'))
 
-    var_policy = TamarVarBasedPolicy(V, alpha)
-    tamar_policy = TamarPolicy(V, alpha)
+    alpha = 0.1
+    policy = XiBasedPolicy(V, alpha)
 
     # =============== VI stats
     # nb_epochs = int(1e6)
@@ -93,7 +93,6 @@ if __name__ == '__main__':
     V_visual = np.array([[V.V[i, j].cvar_alpha(alpha) for j in range(len(V.V[i]))] for i in range(len(V.V))])
     # print(V_visual)
     plot_machine = PlotMachine(world, V_visual)
-    policy = tamar_policy
     # policy = var_policy
     for i in range(100):
         S, A, R = epoch(world, policy, plot_machine=plot_machine)

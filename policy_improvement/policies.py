@@ -33,7 +33,8 @@ class GreedyPolicy(Policy):
 
     def next_action(self, t):
         s = t.state
-        return np.argmax(expected_value(self.Q[:, s.y, s.x]))
+        return np.argmax(self.Q[:, s.y, s.x])
+
 
 class NaiveCvarPolicy(Policy):
     __name__ = 'Naive CVaR'
@@ -131,7 +132,7 @@ class AlphaBasedPolicy(Policy):
         self.a_old = None
 
 
-class TamarPolicy(Policy):
+class XiBasedPolicy(Policy):
     __name__ = 'Tamar-like'
 
     def __init__(self, V, alpha):
@@ -214,7 +215,6 @@ class VarBasedQPolicy(Policy):
         else:
             self.s = (self.s - t.reward) / gamma
             a = self.Q.next_action_s(x, self.s)
-        print('s=', self.s)
         return a
 
     def reset(self):

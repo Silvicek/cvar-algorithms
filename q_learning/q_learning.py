@@ -14,7 +14,7 @@ class ActionValueFunction:
 
         self.Q = np.empty((world.height, world.width, len(world.ACTIONS)), dtype=object)
         for ix in np.ndindex(self.Q.shape):
-            self.Q[ix] = MarkovState(self.atoms)
+            self.Q[ix] = MarkovQState(self.atoms)
 
     def update_safe(self, x, a, x_, r, beta, id=None):
         """ TD update that ensures yCVaR convexity. """
@@ -168,7 +168,7 @@ def is_convex(yc, atoms):
     return is_ordered(cvar_computation.yc_to_var(atoms, yc))
 
 
-class MarkovState:
+class MarkovQState:
 
     def __init__(self, atoms):
         self.atoms = atoms
@@ -315,15 +315,15 @@ if __name__ == '__main__':
     start = time.time()
 
     # ============================= new config
-    run_alpha = 0.1
+    run_alpha = 0.3
     world = GridWorld(10, 15, random_action_p=0.1)
-    Q = q_learning(world, run_alpha, max_episodes=20000)
+    Q = q_learning(world, run_alpha, max_episodes=10000)
     print('time=', time.time() - start)
 
-    pickle.dump((world, Q), open('../files/q.pkl', mode='wb'))
+    pickle.dump((world, Q), open('../files/models/q_10_15.pkl', mode='wb'))
 
     # ============================= load
-    world, Q = pickle.load(open('../files/q.pkl', 'rb'))
+    world, Q = pickle.load(open('../files/models/q_10_15.pkl', 'rb'))
 
     # ============================= RUN
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))

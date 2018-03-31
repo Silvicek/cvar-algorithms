@@ -21,7 +21,7 @@ class ValueFunction:
         for ix in np.ndindex(self.V.shape):
             self.V[ix] = MarkovState()
 
-    def update(self, y, x, deep=True):
+    def update(self, y, x, check_bound=True):
 
         yc_a = []
         v_a = []
@@ -51,13 +51,12 @@ class ValueFunction:
                                 for a in self.world.ACTIONS])
 
         # check for error bound
-        eps = 1.
-        c_0 = v_a[best_args[0], 0]
-        if c_0 - self.V[y, x].c_0 > eps:
-            # if deep and self.V[y, x].nb_atoms < 100:
-            if deep:
+        if check_bound:
+            eps = 1.
+            c_0 = v_a[best_args[0], 0]
+            if c_0 - self.V[y, x].c_0 > eps:
+                # if deep and self.V[y, x].nb_atoms < 100:
                 self.V[y, x].increase_precision(eps)
-                self.update(y, x, False)
 
     def next_action(self, y, x, alpha):
         if alpha == 0:
@@ -80,7 +79,6 @@ class ValueFunction:
                 best = (cv, xis, a)
 
         _, xis, a = best
-        print(xis)
         return a, xis
 
     def single_yc_xis_lp(self, y, x, a, alpha):
@@ -131,9 +129,9 @@ class ValueFunction:
 
     def optimal_path(self, alpha):
         """ Optimal deterministic path. """
-        from policy_improvement.policies import TamarPolicy, TamarVarBasedPolicy
+        from policy_improvement.policies import XiBasedPolicy, TamarVarBasedPolicy
         from util.runs import optimal_path
-        policy = TamarPolicy(self, alpha)
+        policy = XiBasedPolicy(self, alpha)
         return optimal_path(self.world, policy)
 
 
@@ -229,7 +227,7 @@ def value_update(world, V, id=0, figax=None):
 
 
 def converged(V, V_, world):
-    eps = 1e-8
+    eps = 1e-10
     max_val = eps
     max_state = None
     for s in world.states():
@@ -275,12 +273,12 @@ if __name__ == '__main__':
     from plots.grid import InteractivePlotMachine
 
     # ============================= new config
-    # world = GridWorld(10, 15, random_action_p=0.1)
-    # V = value_iteration(world, max_iters=1000)
-    # pickle.dump((world, V), open('../files/vi.pkl', mode='wb'))
+    world = GridWorld(10, 15, random_action_p=0.1)
+    V = value_iteration(world, max_iters=1000)
+    pickle.dump((world, V), open('../files/models/vi_10_15.pkl', mode='wb'))
 
     # ============================= load
-    world, V = pickle.load(open('../files/vi.pkl', 'rb'))
+    world, V = pickle.load(open('../files/models/vi_10_15.pkl', 'rb'))
 
     # ============================= RUN
     print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))

@@ -1,7 +1,7 @@
 from util.runs import epoch
 from cliffwalker import *
 from plots.grid import PlotMachine
-from policy_improvement.policies import VarBasedQPolicy, TamarPolicy
+from policy_improvement.policies import VarBasedQPolicy, XiBasedPolicy
 import q_learning
 from q_learning import ActionValueFunction, MarkovState
 
