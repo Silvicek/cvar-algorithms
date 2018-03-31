@@ -2,7 +2,7 @@ from cliffwalker import *
 from util.constants import *
 from util import cvar_computation
 import numpy as np
-from plots.grid_plot_machine import InteractivePlotMachine
+from plots.grid import InteractivePlotMachine
 
 
 class ActionValueFunction:

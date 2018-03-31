@@ -109,7 +109,7 @@ class GridWorld:
 
 if __name__ == '__main__':
     from util.constants import *
-    from plots.grid_plot_machine import grid_plot
+    from plots.grid import grid_plot
     import matplotlib.pyplot as plt
 
     world = GridWorld(40, 60)

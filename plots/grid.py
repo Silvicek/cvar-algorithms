@@ -174,7 +174,12 @@ def show_fixed(world, V, P):
     plt.show()
 
 
-def grid_plot(world, img=None):
+def grid_plot(world, img=None, figax=None, sg_size=20):
+
+    if figax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig, ax = figax
 
     if img is None:
         img = -1 * np.ones((world.height, world.width))
@@ -183,8 +188,6 @@ def grid_plot(world, img=None):
     for s in world.cliff_states:
         img[s.y, s.x] = cool
 
-    fig, ax = plt.subplots()
-
     im = ax.imshow(img, interpolation='nearest', origin='upper')
     plt.tick_params(axis='both', which='both', bottom='off', top='off',
                     labelbottom='off', right='off', left='off', labelleft='off')
@@ -192,10 +195,10 @@ def grid_plot(world, img=None):
     cax = divider.append_axes("right", size="5%", pad=0.05)
     plt.colorbar(im, cax=cax)
 
-    ax.text(world.initial_state.x, world.initial_state.y, 'S', ha='center', va='center', fontsize=20)
+    ax.text(world.initial_state.x, world.initial_state.y, 'S', ha='center', va='center', fontsize=sg_size)
     for s in world.goal_states:
-        ax.text(s[1], s[0], 'G', ha='center', va='center', fontsize=20)
+        ax.text(s[1], s[0], 'G', ha='center', va='center', fontsize=sg_size)
     for s in world.risky_goal_states:
-        ax.text(s[1], s[0], 'R', ha='center', va='center', fontsize=20)
+        ax.text(s[1], s[0], 'R', ha='center', va='center', fontsize=sg_size)
     return fig, ax
 

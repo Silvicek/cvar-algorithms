@@ -1,6 +1,6 @@
 from util.runs import epoch
 from cliffwalker import *
-from plots.grid_plot_machine import PlotMachine
+from plots.grid import PlotMachine
 from policy_improvement.policies import VarBasedQPolicy, TamarPolicy
 import q_learning
 from q_learning import ActionValueFunction, MarkovState

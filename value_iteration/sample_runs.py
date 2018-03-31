@@ -2,7 +2,7 @@ import time
 from util.constants import gamma
 from util.runs import epoch
 from cliffwalker import *
-from plots.grid_plot_machine import PlotMachine
+from plots.grid import PlotMachine
 from policy_improvement.policies import GreedyPolicy, TamarPolicy, TamarVarBasedPolicy
 from value_iteration import value_iteration
 from util import cvar_computation

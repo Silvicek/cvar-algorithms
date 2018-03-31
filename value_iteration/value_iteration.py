@@ -272,7 +272,7 @@ def value_iteration(world, V=None, max_iters=1e3):
 
 if __name__ == '__main__':
     import pickle
-    from plots.grid_plot_machine import InteractivePlotMachine
+    from plots.grid import InteractivePlotMachine
 
     # ============================= new config
     # world = GridWorld(10, 15, random_action_p=0.1)

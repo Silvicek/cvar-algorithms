@@ -3,7 +3,7 @@
 """
 
 from cliffwalker import GridWorld
-from plots.grid_plot_machine import show_fixed
+from plots.grid import show_fixed
 from util.constants import gamma
 import numpy as np
 
