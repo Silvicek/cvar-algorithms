@@ -168,11 +168,11 @@ def q_to_v_argmax(world, Q):
 
 
 if __name__ == '__main__':
-
-    world = GridWorld(40, 60, random_action_p=0.05)
+    np.random.seed(2)
+    world = GridWorld(40, 60, random_action_p=0.1)
 
     # Q = policy_iteration(world)
-    Q = value_iteration(world)
-    # Q = q_learning(world, max_episodes=50000)
+    # Q = value_iteration(world)
+    Q = q_learning(world, max_episodes=50000)
 
     show_fixed(world, q_to_v_argmax(world, Q), np.argmax(Q, axis=0))

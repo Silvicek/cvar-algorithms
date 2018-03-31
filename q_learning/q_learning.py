@@ -5,33 +5,29 @@ import numpy as np
 from plots.grid_plot_machine import InteractivePlotMachine
 
 
-atoms = spaced_atoms(NB_ATOMS, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
-atom_p = atoms[1:] - atoms[:-1]  # [0.25, 0.25, 0.5]
-
-
 class ActionValueFunction:
 
-    def __init__(self, world):
+    def __init__(self, world, atoms):
         self.world = world
         self.atoms = atoms
         self.atom_p = self.atoms[1:] - self.atoms[:-1]
 
         self.Q = np.empty((world.height, world.width, len(world.ACTIONS)), dtype=object)
         for ix in np.ndindex(self.Q.shape):
-            self.Q[ix] = MarkovState()
+            self.Q[ix] = MarkovState(self.atoms)
 
     def update_safe(self, x, a, x_, r, beta, id=None):
         """ TD update that ensures yCVaR convexity. """
         V_x = self.joint_action_dist(x_)
 
         for v in V_x:
-            for i, atom in enumerate(atoms[1:]):
+            for i, atom in enumerate(self.atoms[1:]):
                 V = self.Q[x.y, x.x, a].V[i]
                 yC = self.Q[x.y, x.x, a].yC[i]
 
                 # learning rates
-                lr_v = beta * atom_p[i]  # p mirrors magnitude (for log-spaced)
-                lr_yc = beta * atom_p[i]
+                lr_v = beta * self.atom_p[i]  # p mirrors magnitude (for log-spaced)
+                lr_yc = beta * self.atom_p[i]
                 # lr_yc = beta * atom_p[i] / atom  # /atom for using the same beta when estimating cvar (not yc)
 
                 if self.Q[x.y, x.x, a].V[i] >= r + gamma*v:
@@ -42,7 +38,7 @@ class ActionValueFunction:
                 # UPDATE VaR
                 if i == 0:
                     self.Q[x.y, x.x, a].V[i] = min(self.Q[x.y, x.x, a].V[i] + update, self.Q[x.y, x.x, a].V[i+1])
-                elif i == (len(atoms)-2):
+                elif i == (len(self.atoms)-2):
                     self.Q[x.y, x.x, a].V[i] = max(self.Q[x.y, x.x, a].V[i] + update, self.Q[x.y, x.x, a].V[i-1])
                 else:
                     self.Q[x.y, x.x, a].V[i] = min(max(self.Q[x.y, x.x, a].V[i] + update, self.Q[x.y, x.x, a].V[i-1]),
@@ -53,11 +49,11 @@ class ActionValueFunction:
                 if i == 0:
                     self.Q[x.y, x.x, a].yC[i] = yCn
                 elif i == 1:
-                    ddy = self.Q[x.y, x.x, a].yC[0] / atom_p[0]  # TODO: check
-                    self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i - 1] + ddy * atom_p[i])
+                    ddy = self.Q[x.y, x.x, a].yC[0] / self.atom_p[0]  # TODO: check
+                    self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i - 1] + ddy * self.atom_p[i])
                 else:
-                    ddy = (self.Q[x.y, x.x, a].yC[i-1] - self.Q[x.y, x.x, a].yC[i-2]) / atom_p[i-1] # TODO: check
-                    self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i-1] + ddy*atom_p[i])
+                    ddy = (self.Q[x.y, x.x, a].yC[i-1] - self.Q[x.y, x.x, a].yC[i-2]) / self.atom_p[i-1] # TODO: check
+                    self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i-1] + ddy*self.atom_p[i])
 
     def update_naive(self, x, a, x_, r, beta, id=None):
         """ CVaR TD update. """
@@ -65,14 +61,14 @@ class ActionValueFunction:
         print('standard')
         # TODO: vectorize/cythonize
         for iv, v in enumerate(V_x):
-            for i, atom in enumerate(atoms[1:]):
+            for i, atom in enumerate(self.atoms[1:]):
                 V = self.Q[x.y, x.x, a].V[i]
                 yC = self.Q[x.y, x.x, a].yC[i]
 
                 # learning rates
-                lr_v = beta * atom_p[iv]  # p mirrors magnitude (for log-spaced)
+                lr_v = beta * self.atom_p[iv]  # p mirrors magnitude (for log-spaced)
                 # lr_yc = beta * atom_p[iv] / atom  # /atom for using the same beta when estimating cvar (not yc)
-                lr_yc = beta * atom_p[iv]
+                lr_yc = beta * self.atom_p[iv]
 
                 if self.Q[x.y, x.x, a].V[i] >= r + gamma * v:
                     update = lr_v * (1 - 1 / atom)
@@ -96,18 +92,18 @@ class ActionValueFunction:
         V = np.array(self.Q[x.y, x.x, a].V)
         yC = np.array(self.Q[x.y, x.x, a].yC)
 
-        lr_v = beta * atom_p[:, np.newaxis]
-        lr_yc = beta * atom_p
+        lr_v = beta * self.atom_p[:, np.newaxis]
+        lr_yc = beta * self.atom_p
 
         # row is a single atom update
         # shape=(n, n)
         indicator_mask = self.Q[x.y, x.x, a].V >= r + gamma * V_x[:, np.newaxis]
 
-        v_update = lr_v - indicator_mask * (lr_v / atoms[1:])
+        v_update = lr_v - indicator_mask * (lr_v / self.atoms[1:])
 
         self.Q[x.y, x.x, a].V += np.sum(v_update, axis=0)
 
-        yCn = atoms[1:] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0)
+        yCn = self.atoms[1:] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0)
         self.Q[x.y, x.x, a].yC = (1 - beta) * yC + beta * np.average(yCn, axis=0, weights=lr_yc)
 
     def next_action_alpha(self, x, alpha):
@@ -119,7 +115,7 @@ class ActionValueFunction:
         Select best action according to E[(Z-s)^-].
         If multiple 0's, use yCVaR_0.
         """
-        return max(self.world.ACTIONS, key=lambda a: (self.Q[x.y, x.x, a].e_min_s(s), self.Q[x.y, x.x, a].yC[0]))
+        return max(self.world.ACTIONS, key=lambda a: (self.Q[x.y, x.x, a].cvar_pre_s(s), self.Q[x.y, x.x, a].yC[0]))
 
     def joint_action_dist(self, x, return_yc=False):
         """
@@ -131,7 +127,7 @@ class ActionValueFunction:
         if return_yc:
             return yc
         else:
-            return cvar_computation.yc_to_var(atoms, yc)
+            return cvar_computation.yc_to_var(self.atoms, yc)
 
     def joint_action_dist_var(self, x):
         """
@@ -145,8 +141,8 @@ class ActionValueFunction:
     def var_alpha(self, x, a, alpha):
         # TODO: check
         i = 0
-        for i in range(len(atoms)):
-            if alpha < atoms[i]:
+        for i in range(len(self.atoms)):
+            if alpha < self.atoms[i]:
                 break
         return self.Q[x.y, x.x, a].V[i-1]
 
@@ -167,14 +163,15 @@ def is_ordered(v):
     return True
 
 
-def is_convex(yc):
+def is_convex(yc, atoms):
     assert not LOG
     return is_ordered(cvar_computation.yc_to_var(atoms, yc))
 
 
 class MarkovState:
 
-    def __init__(self):
+    def __init__(self, atoms):
+        self.atoms = atoms
         self.V = np.zeros(NB_ATOMS)  # VaR estimate
         self.yC = np.zeros(NB_ATOMS)  # CVaR estimate
 
@@ -184,14 +181,14 @@ class MarkovState:
             _, ax = plt.subplots(1, 3)
 
         # var
-        ax[0].step(atoms, list(self.V) + [self.V[-1]], 'o-', where='post')
+        ax[0].step(self.atoms, list(self.V) + [self.V[-1]], 'o-', where='post')
 
         # yC
-        ax[1].plot(atoms, np.insert(self.yC, 0, 0), 'o-')
+        ax[1].plot(self.atoms, np.insert(self.yC, 0, 0), 'o-')
 
         # yC-> var
         v = self.dist_from_yc()
-        ax[2].step(atoms, list(v) + [v[-1]], 'o-', where='post')
+        ax[2].step(self.atoms, list(v) + [v[-1]], 'o-', where='post')
         if show:
             plt.show()
 
@@ -201,10 +198,10 @@ class MarkovState:
     def yc_alpha(self, alpha):
         """ linear interpolation: yC(alpha)"""
         i = 0
-        for i in range(1, len(atoms)):
-            if alpha < atoms[i]:
+        for i in range(1, len(self.atoms)):
+            if alpha < self.atoms[i]:
                 break
-        alpha_portion = (alpha - atoms[i-1]) / (atoms[i] - atoms[i-1])
+        alpha_portion = (alpha - self.atoms[i-1]) / (self.atoms[i] - self.atoms[i-1])
         if i == 1:  # between 0 and first atom
             return alpha_portion * self.yC[i-1]
         else:
@@ -214,36 +211,39 @@ class MarkovState:
         """ VaR estimate of alpha. """
         # TODO: check
         last_v = self.V[0]
-        for p, v in zip(atoms[1:], self.V):
+        for p, v in zip(self.atoms[1:], self.V):
             if p > alpha:
                 break
             last_v = v
         return last_v
 
-    def e_min_s(self, s):
+    def cvar_pre_s(self, s):
         """ E[(V-s)^-] + ys.
 
         Uses the actual VaR for th cutoff and yC->VaR for the expectation.
         """
-        e_min = 0
+        yc = 0
 
-        for p, v, v_yc in zip(atom_p, self.V, self.dist_from_yc()):
+        for ix, v_yc in enumerate(self.dist_from_yc()):
+            v = self.V[ix]
+            p = self.atoms[ix+1] - self.atoms[ix]
             if v < s:
-                e_min += p * v_yc
+                yc += p * v_yc
             else:
                 break
-        return e_min
+
+        return yc
 
     def dist_from_yc(self):
-        return cvar_computation.yc_to_var(atoms, self.yC)
+        return cvar_computation.yc_to_var(self.atoms, self.yC)
 
 
 def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
-    Q = ActionValueFunction(world)
+    Q = ActionValueFunction(world, spaced_atoms(NB_ATOMS, SPACING, LOG))
 
     # learning parameters
-    eps = 0.5
-    beta = .4
+    eps = 0.4
+    beta = .6
 
     e = 0
     while e < max_episodes:
@@ -266,6 +266,9 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
 
             i += 1
         e += 1
+
+        # if x in world.goal_states and r == -1:
+        #     print('(success)')
 
     return Q
 
@@ -314,7 +317,7 @@ if __name__ == '__main__':
     # ============================= new config
     run_alpha = 0.1
     world = GridWorld(10, 15, random_action_p=0.1)
-    Q = q_learning(world, run_alpha, max_episodes=5000)
+    Q = q_learning(world, run_alpha, max_episodes=20000)
     print('time=', time.time() - start)
 
     pickle.dump((world, Q), open('../files/q.pkl', mode='wb'))

@@ -118,6 +118,6 @@ if __name__ == '__main__':
     for i in range(20):
         print('seed=', i)
         np.random.seed(i)
-        world = GridWorld(10, 15)
+        world = GridWorld(40, 60)
         grid_plot(world)
         plt.show()
