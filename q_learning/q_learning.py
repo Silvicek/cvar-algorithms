@@ -164,7 +164,7 @@ def is_ordered(v):
 
 
 def is_convex(yc, atoms):
-    assert not LOG
+    assert LOG_NB_ATOMS == 0
     return is_ordered(cvar_computation.yc_to_var(atoms, yc))
 
 
@@ -239,7 +239,7 @@ class MarkovQState:
 
 
 def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
-    Q = ActionValueFunction(world, spaced_atoms(NB_ATOMS, SPACING, LOG))
+    Q = ActionValueFunction(world, spaced_atoms(NB_ATOMS, SPACING, LOG_NB_ATOMS, LOG_THRESHOLD))
 
     # learning parameters
     eps = 0.4
@@ -326,7 +326,7 @@ if __name__ == '__main__':
     world, Q = pickle.load(open('../files/models/q_10_15.pkl', 'rb'))
 
     # ============================= RUN
-    print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
+    print('ATOMS:', Q.atoms)
 
     for alpha in np.arange(0.05, 1, 0.05):
         print(alpha)

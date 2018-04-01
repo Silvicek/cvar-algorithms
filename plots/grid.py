@@ -92,10 +92,21 @@ class InteractivePlotMachine:
         for ax in self.state_ax:
             ax.clear()
 
-        self.V.V[y, x].plot(figax=(self.state_fig, self.state_ax))
+        for a in self.world.ACTIONS:
+            self.V.plot(y, x, a, ax=self.state_ax, show=False)
+        ax.legend([self.world.ACTION_NAMES[a] for a in self.world.ACTIONS])
+
+        # combination of all actions
+        V_x = self.V.V[y, x].var
+        yc_x = self.V.V[y, x].yC
+        self.state_ax[0].step(self.V.V[y, x].atoms, list(V_x) + [V_x[-1]], '--', where='post')
+        self.state_ax[1].plot(self.V.V[y, x].atoms, np.insert(yc_x, 0, 0), '--')
 
         # titles
         self.state_fig.suptitle("(y={}, x={})".format(y, x))
+
+        # show
+        self.state_fig.show()
 
     def handle_click_q(self, event):
         if event.xdata is None:
@@ -124,6 +135,7 @@ class InteractivePlotMachine:
 
         # show
         self.state_fig.show()
+
 
     def _canvas_to_grid(self, xd, yd):
         offset = -0.5

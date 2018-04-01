@@ -21,8 +21,27 @@ class ValueFunction:
         for ix in np.ndindex(self.V.shape):
             self.V[ix] = MarkovState()
 
-    def update(self, y, x, check_bound=True):
+    def update(self, y, x, check_bound=False):
 
+        v_a, yc_a = self.action_v_yc(y, x)
+
+        best_args = np.argmax(yc_a, axis=0)
+
+        self.V[y, x].yC = np.array([yc_a[best_args[i], i] for i in range(len(self.V[y, x].yC))])
+
+        self.V[y, x].c_0 = max([cvar_computation.v_0_from_transitions(self.V, list(self.transitions(y, x, a)), gamma)
+                                for a in self.world.ACTIONS])
+
+        # check for error bound
+        if check_bound:
+            eps = 1.
+            c_0 = v_a[best_args[0], 0]
+            if c_0 - self.V[y, x].c_0 > eps:
+                # if deep and self.V[y, x].nb_atoms < 100:
+                self.V[y, x].increase_precision(eps)
+
+    def action_v_yc(self, y, x):
+        """ Extract transition distributions for each action. """
         yc_a = []
         v_a = []
 
@@ -40,23 +59,7 @@ class ValueFunction:
             yc_a.append(yc)
             v_a.append(v)
 
-        yc_a = np.array(yc_a)
-        v_a = np.array(v_a)
-
-        best_args = np.argmax(yc_a, axis=0)
-
-        self.V[y, x].yC = np.array([yc_a[best_args[i], i] for i in range(len(self.V[y, x].yC))])
-
-        self.V[y, x].c_0 = max([cvar_computation.v_0_from_transitions(self.V, list(self.transitions(y, x, a)), gamma)
-                                for a in self.world.ACTIONS])
-
-        # check for error bound
-        if check_bound:
-            eps = 1.
-            c_0 = v_a[best_args[0], 0]
-            if c_0 - self.V[y, x].c_0 > eps:
-                # if deep and self.V[y, x].nb_atoms < 100:
-                self.V[y, x].increase_precision(eps)
+        return np.array(v_a), np.array(yc_a)
 
     def next_action(self, y, x, alpha):
         if alpha == 0:
@@ -96,6 +99,7 @@ class ValueFunction:
         var_values = self.transition_vars(y, x, a)
         transition_p = [t.prob for t in transitions]
         t_atoms = [self.V[t.state.y, t.state.x].atoms for t in transitions]
+
         return cvar_computation.single_var_yc_xis_from_t(transition_p, t_atoms, var_values, alpha)
 
     def y_var(self, y, x, a, var):
@@ -134,6 +138,22 @@ class ValueFunction:
         policy = XiBasedPolicy(self, alpha)
         return optimal_path(self.world, policy)
 
+    def plot(self, y, x, a, show=False, ax=None):
+        import matplotlib.pyplot as plt
+        if ax is None:
+            fig, ax = plt.subplots(1, 2)
+
+        var_a, yc_a = self.action_v_yc(y, x)
+        var = var_a[a]
+        yc = yc_a[a]
+        # var
+        ax[0].step(self.V[y, x].atoms, list(var) + [var[-1]], 'o-', where='post')
+
+        # yV
+        ax[1].plot(self.V[y, x].atoms, np.insert(yc, 0, 0), 'o-')
+        if show:
+            plt.show()
+
 
 def extract_distribution(transitions, var_values, atom_ps):
     """
@@ -156,7 +176,7 @@ class MarkovState:
 
     def __init__(self):
         self.yC = np.zeros(NB_ATOMS)
-        self.atoms = spaced_atoms(self.nb_atoms, SPACING, LOG)    # e.g. [0, 0.25, 0.5, 1]
+        self.atoms = spaced_atoms(NB_ATOMS, SPACING, LOG_NB_ATOMS, LOG_THRESHOLD)    # e.g. [0, 0.25, 0.5, 1]
         self.atom_p = self.atoms[1:] - self.atoms[:-1]  # [0.25, 0.25, 0.5]
 
         self.c_0 = 0  # separate estimate for CVaR_0
@@ -281,9 +301,9 @@ if __name__ == '__main__':
     world, V = pickle.load(open('../files/models/vi_10_15.pkl', 'rb'))
 
     # ============================= RUN
-    print('ATOMS:', spaced_atoms(NB_ATOMS, SPACING, LOG))
+    print('ATOMS:', V.V[0,0].atoms)
 
-    for alpha in np.arange(0.05, 1, 0.05):
+    for alpha in np.arange(0.05, 1.01, 0.05):
         print(alpha)
         pm = InteractivePlotMachine(world, V, alpha=alpha)
         pm.show()

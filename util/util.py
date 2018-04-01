@@ -5,13 +5,25 @@ import numpy as np
 #     return new_ix
 
 
-def spaced_atoms(nb_atoms, spacing, log=False):
-    if log:
+def spaced_atoms(nb_atoms, spacing, log_atoms, log_threshold):
+    assert log_atoms <= nb_atoms
+    assert spacing > 1
+
+    if log_atoms != 0:
+        lin = np.linspace(log_threshold, 1, nb_atoms - log_atoms)
         if spacing < 2:
-            return np.array([0, 0.5 / spacing ** (nb_atoms-2)] + [1. / spacing ** (nb_atoms - 1 - i) for i in range(1, nb_atoms)])
-        return np.array([0] + [1. / spacing ** (nb_atoms - 1 - i) for i in range(nb_atoms)])
+            log = np.array([0, log_threshold * 0.5 / spacing ** log_atoms] + [log_threshold / spacing ** (log_atoms - i)
+                                                                              for i in range(log_atoms-1)])
+        else:
+            log = np.array([0] + [log_threshold / spacing ** (log_atoms - i) for i in range(log_atoms)])
+
+        atoms = np.hstack((log, lin))
     else:
-        return np.linspace(0, 1, nb_atoms+1)
+        atoms = np.linspace(0, 1, nb_atoms+1)
+
+    assert np.all(atoms == np.array(sorted(atoms)))
+
+    return atoms
 
 
 def softmax(x):

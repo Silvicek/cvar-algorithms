@@ -9,7 +9,7 @@ from cycler import cycler
 from util.runs import epoch
 
 model_path = '../files/models/'
-plots_path = '../files/models/'
+plots_path = '../plots/models/'
 
 # ============================= SETTINGS
 # plt.rc('text', usetex=True)
@@ -70,13 +70,12 @@ def sample_histograms(alpha, suffix):
     v_q, c_q = var_cvar_from_samples(scores_q, alpha)
     print('CVaR_{}(q)={}'.format(alpha, c_q))
 
-
     plt.hist(scores_exp, density=True, bins=20, edgecolor='black')
     plt.hist(scores_q, density=True, bins=20, edgecolor='black')
-    plt.legend(['exp', 'q'])
+    plt.legend(['Q-learning', 'CVaR Q-learning'])
 
-    plt.savefig(plots_path + 'sample_hist.pdf', bbox_inches='tight')
-    # plt.show()
+    # plt.savefig(plots_path + 'sample_hist.pdf', bbox_inches='tight')
+    plt.show()
 
 
 if __name__ == '__main__':
