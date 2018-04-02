@@ -9,33 +9,39 @@ from cycler import cycler
 from util.runs import epoch
 
 model_path = '../files/models/'
-plots_path = '../plots/models/'
+plots_path = '../files/plots/'
 
 # ============================= SETTINGS
-# plt.rc('text', usetex=True)
-# plt.rc('font', family='serif')
+plt.rc('text', usetex=True)
+plt.rc('font', family='serif')
 matplotlib.rcParams.update({'font.size': 8})
 # plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728'])))
 
 
-def optimal_paths_grids(file_name):
-    world, Q = pickle.load(open(model_path+file_name, 'rb'))
-    alphas = [0.1, 0.25, 0.5, 1.]
+def optimal_paths_grids(file_name, save_name=None, vi=False):
+    world, model = pickle.load(open(model_path+file_name, 'rb'))
+    alphas = [0.1, 0.2, 0.3, 1.]
     fig, axs = plt.subplots(2, 2, figsize=(8.5, 5))
 
     for ax, alpha in zip(axs.flatten(), alphas):
-        img = np.max(np.array([Q.Q[ix].yc_alpha(alpha)/alpha for ix in np.ndindex(Q.Q.shape)]).reshape(Q.Q.shape), axis=-1)
+        if vi:
+            img = np.array([model.V[ix].cvar_alpha(alpha) for ix in np.ndindex(model.V.shape)]).reshape(model.V.shape)
+        else:
+            img = np.max(np.array([model.Q[ix].yc_alpha(alpha)/alpha for ix in np.ndindex(model.Q.shape)]).reshape(model.Q.shape), axis=-1)
         plots.grid.grid_plot(world, img=img, figax=(fig, ax), sg_size=10)
 
-        path = Q.optimal_path(alpha)
+        path = model.optimal_path(alpha)
         print(path)
         ax.plot([s[1] for s in path], [s[0] for s in path], '--', color='white')
 
         ax.set_title("$\\alpha={}$".format(alpha))
         ax.axis('off')
+    if save_name is None:
+        plt.show()
+    else:
+        plt.savefig(plots_path+save_name, bbox_inches='tight')
 
-    plt.savefig(plots_path+'q_optimal_paths.pdf', bbox_inches='tight')
-    plt.show()
+
 
 
 # ============================= RUNS -> stats
@@ -80,7 +86,9 @@ def sample_histograms(alpha, suffix):
 
 if __name__ == '__main__':
 
-    sample_histograms(0.05, suffix='10_15')
+    # sample_histograms(0.05, suffix='10_15')
+
+    optimal_paths_grids('vi_40_60.pkl', 'vi_optimal_paths.pdf', vi=True)
 
 
 

@@ -70,9 +70,6 @@ def single_var_yc_xis_from_t(transition_p, t_atoms, var_values, alpha):
 
     """
 
-    # # debug only
-    # var_values = np.arange(var_values.size).reshape(var_values.shape)
-
     info = extract_distribution(transition_p, t_atoms, var_values)
 
     xis = np.zeros(len(transition_p))

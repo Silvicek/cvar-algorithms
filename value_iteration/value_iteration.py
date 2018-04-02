@@ -69,7 +69,7 @@ class ValueFunction:
             return a_best, np.zeros(len(list(self.transitions(y, x, a_best))))
 
         assert alpha != 0
-
+        # self.plot_full_actions(31, 59)
         best = (-1e6, 0, 0)
         for a in self.world.ACTIONS:
 
@@ -102,13 +102,39 @@ class ValueFunction:
 
         return cvar_computation.single_var_yc_xis_from_t(transition_p, t_atoms, var_values, alpha)
 
+    def plot_full_actions(self, y, x):
+        """
+        Plot actions without value approximation - used for debugging
+        """
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+
+        for a in self.world.ACTIONS:
+            transitions = list(self.transitions(y, x, a))
+            var_values = self.transition_vars(y, x, a)
+            transition_p = [t.prob for t in transitions]
+            t_atoms = [self.V[t.state.y, t.state.x].atoms for t in transitions]
+
+            info = cvar_computation.extract_distribution(transition_p, t_atoms, var_values)
+            t_atoms = np.cumsum([0]+[p for p, ix, v in info])
+            t_vars = [v for p, ix, v in info]
+            t_yc = cvar_computation.var_to_ycvar([p for p, ix, v in info], t_vars)
+            print(a, cvar_computation.single_alpha_to_yc([p for p, ix, v in info], t_vars, 0.036))
+
+            ax.plot(t_atoms, [0]+list(t_yc), 'o-')
+
+        ax.legend([self.world.ACTION_NAMES[a] for a in self.world.ACTIONS])
+
+        plt.show()
+
     def y_var(self, y, x, a, var):
         """ E[(Z-var)^-] + yvar"""
 
         transitions = list(self.transitions(y, x, a))
         var_values = self.transition_vars(y, x, a)
 
-        info = extract_distribution(transitions, var_values, [self.V[tr.state.y, tr.state.x].atom_p for tr in transitions])
+        info = cvar_computation.extract_distribution(transitions, var_values,
+                                                     [self.V[tr.state.y, tr.state.x].atom_p for tr in transitions])
 
         yv = 0.
         p = 0
@@ -153,23 +179,6 @@ class ValueFunction:
         ax[1].plot(self.V[y, x].atoms, np.insert(yc, 0, 0), 'o-')
         if show:
             plt.show()
-
-
-def extract_distribution(transitions, var_values, atom_ps):
-    """
-
-    :param transitions:
-    :param var_values:
-    :param atom_p:
-    :return: sorted list of tuples (probability, index, var)
-    """
-    info = []
-    for i_t, t in enumerate(transitions):
-        for i_v, v, p_ in zip(range(len(var_values[i_t])), var_values[i_t], atom_ps[i_t]):
-            info.append((p_ * t.prob, i_t, v))
-
-    info.sort(key=lambda x: x[-1])
-    return info
 
 
 class MarkovState:
@@ -294,15 +303,15 @@ if __name__ == '__main__':
     from plots.grid import InteractivePlotMachine
     np.random.seed(2)
     # ============================= new config
-    # world = GridWorld(40, 60, random_action_p=0.1)
-    # V = value_iteration(world, max_iters=1000)
-    # pickle.dump((world, V), open('../files/models/vi_10_15.pkl', mode='wb'))
+    world = GridWorld(40, 60, random_action_p=0.05)
+    V = value_iteration(world, max_iters=1000)
+    pickle.dump((world, V), open('../files/models/vi_40_60_2.pkl', mode='wb'))
 
     # ============================= load
-    world, V = pickle.load(open('../files/models/vi_10_15.pkl', 'rb'))
+    world, V = pickle.load(open('../files/models/vi_40_60_2.pkl', 'rb'))
 
     # ============================= RUN
-    print('ATOMS:', V.V[0,0].atoms)
+    print('ATOMS:', V.V[0, 0].atoms)
 
     for alpha in np.arange(0.05, 1.01, 0.05):
         print(alpha)
