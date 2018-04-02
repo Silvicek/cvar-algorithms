@@ -143,7 +143,8 @@ def value_update(world, Q, P):
 
 
 def converged(Q, Q_):
-    return np.linalg.norm(Q-Q_)/Q.size < 1e-5
+    print('error:', np.max(Q-Q_))
+    return np.max(Q-Q_) < 1e-5
 
 
 def eval_fixed_policy(world, P):
@@ -170,11 +171,11 @@ def q_to_v_argmax(world, Q):
 if __name__ == '__main__':
     import pickle
     np.random.seed(2)
-    world = GridWorld(10, 15, random_action_p=0.1)
+    world = GridWorld(40, 60, random_action_p=0.1)
 
     # Q = policy_iteration(world)
-    # Q = value_iteration(world)
-    Q = q_learning(world, max_episodes=10000)
+    Q = value_iteration(world)
+    # Q = q_learning(world, max_episodes=10000)
 
     pickle.dump((world, Q), open('../files/models/exp_10_15.pkl', mode='wb'))
 

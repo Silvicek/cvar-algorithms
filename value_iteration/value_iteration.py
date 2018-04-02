@@ -246,27 +246,24 @@ def value_update(world, V, id=0, figax=None):
     return V_
 
 
-def converged(V, V_, world):
-    eps = 1e-10
-    max_val = eps
+def value_difference(V, V_, world):
+    max_val = -1
     max_state = None
     for s in world.states():
         # dist = np.max(np.abs(V.V[s.y, s.x].var-V_.V[s.y, s.x].var))
         cvars = np.array([V.V[s.y, s.x].cvar_alpha(alpha) for alpha in V.V[s.y, s.x].atoms[1:]])
         cvars_ = np.array([V_.V[s.y, s.x].cvar_alpha(alpha) for alpha in V_.V[s.y, s.x].atoms[1:]])
         if cvars.shape != cvars_.shape:
-            return False
+            return float('inf')
         dist = np.max(np.abs(cvars - cvars_))
         if dist > max_val:
             max_state = s
             max_val = dist
-    if max_val > eps:
-        print(max_val, max_state)
-        return False
-    return True
+
+    return max_val, max_state
 
 
-def value_iteration(world, V=None, max_iters=1e3):
+def value_iteration(world, V=None, max_iters=1e3, eps_convergence=1e-5):
     if V is None:
         V = ValueFunction(world)
     i = 0
@@ -277,13 +274,17 @@ def value_iteration(world, V=None, max_iters=1e3):
             figax = plt.subplots(1, 2)
         V_ = value_update(world, V, i, figax)
 
-        if (converged(V, V_, world) and i != 0) or i > max_iters:
+        error, worst_state = value_difference(V, V_, world)
+        if error < eps_convergence:
             print("value fully learned after %d iterations" % (i,))
+            break
+        elif i > max_iters:
+            print("value finished without convergence after %d iterations" % (i,))
             break
         V = V_
         i += 1
 
-        print('Value iteration:', i)
+        print('Iteration:{}, error={} ({})'.format(i, error, worst_state))
 
     return V
 
@@ -291,11 +292,11 @@ def value_iteration(world, V=None, max_iters=1e3):
 if __name__ == '__main__':
     import pickle
     from plots.grid import InteractivePlotMachine
-
+    np.random.seed(2)
     # ============================= new config
-    world = GridWorld(10, 15, random_action_p=0.1)
-    V = value_iteration(world, max_iters=1000)
-    pickle.dump((world, V), open('../files/models/vi_10_15.pkl', mode='wb'))
+    # world = GridWorld(40, 60, random_action_p=0.1)
+    # V = value_iteration(world, max_iters=1000)
+    # pickle.dump((world, V), open('../files/models/vi_10_15.pkl', mode='wb'))
 
     # ============================= load
     world, V = pickle.load(open('../files/models/vi_10_15.pkl', 'rb'))

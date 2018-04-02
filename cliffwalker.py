@@ -38,7 +38,7 @@ class GridWorld:
             for x in range(width):
                 for y in range(height):
                     s = State(y, x)
-                    p_cliff = 0.1 * (y / height)**2 * bool(x != 0 and y != 0 and x < width-1 and y < height-1)
+                    p_cliff = 0.1 * (y / height)**2 * bool(x > 1 and y > 0 and x < width-2 and y < height-1)
                     if s == self.initial_state or s in self.goal_states:
                         continue
 

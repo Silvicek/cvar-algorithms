@@ -42,20 +42,21 @@ def single_alpha_to_var(p_sorted, v_sorted, alpha):
 def single_alpha_to_cvar(p_sorted, v_sorted, alpha):
     if alpha == 0:
         return v_sorted[0]
+    return single_alpha_to_yc(p_sorted, v_sorted, alpha) / alpha
 
-    # TODO: check
 
+def single_alpha_to_yc(p_sorted, v_sorted, alpha):
     p = 0.
-    cv = 0.
+    yc = 0.
     for p_, v_ in zip(p_sorted, v_sorted):
         if p + p_ >= alpha:
-            cv += (alpha - p)*v_
+            yc += (alpha - p)*v_
             break
         else:
             p += p_
-            cv += p_*v_
+            yc += p_*v_
 
-    return cv / alpha
+    return yc
 
 
 # ===================================================================
@@ -69,37 +70,41 @@ def single_var_yc_xis_from_t(transition_p, t_atoms, var_values, alpha):
 
     """
 
+    # # debug only
+    # var_values = np.arange(var_values.size).reshape(var_values.shape)
+
     info = extract_distribution(transition_p, t_atoms, var_values)
 
     xis = np.zeros(len(transition_p))
     p = 0.
-    cv = 0.
-    v = 0.
+    yc = 0.
 
     v_alpha = single_alpha_to_var([p_ for p_, i_t, v in info], [v for p_, i_t, v in info], alpha)
     ix = 0
     for ix, (p_, t_i, v) in enumerate(info):
         if v >= v_alpha:
-            cv += (alpha - p) * v
+            yc += (alpha - p) * v
             break
         else:
             xis[t_i] += p_
-            cv += p_ * v
+            yc += p_ * v
             p += p_
 
-    # uniform last atom
+    # same last atom -> weight uniformly
     last_v_info = []
-    while v == v_alpha and ix < len(info)-1:
+    while ix < len(info):
+        p_, t_i, v = info[ix]
+        if v != v_alpha:
+            break
         last_v_info.append(info[ix])
         ix += 1
-        p_, t_i, v = info[ix]
     last_v_p = np.array([p_ for p_, t_i, v in last_v_info])
     fractions = last_v_p/np.sum(last_v_p)
 
     for fr, (p_, t_i, v) in zip(fractions, last_v_info):
         xis[t_i] += (alpha - p) * fr
 
-    return v_alpha, cv, xis / transition_p
+    return v_alpha, yc, xis / transition_p
 
 
 def single_yc_lp_from_t(transition_p, t_atoms, yc_values, alpha, xis=False):
