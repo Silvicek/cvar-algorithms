@@ -4,7 +4,7 @@
 
 from cvar.gridworld.cliffwalker import GridWorld
 from cvar.gridworld.plots.grid import show_fixed
-from cvar.gridworld.util.constants import gamma
+from cvar.gridworld.core.constants import gamma
 import numpy as np
 
 # ========================================

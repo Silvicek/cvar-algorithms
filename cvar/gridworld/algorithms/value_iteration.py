@@ -1,6 +1,6 @@
 from cvar.gridworld.cliffwalker import *
-from cvar.gridworld.util.constants import *
-from cvar.gridworld.util import cvar_computation
+from cvar.gridworld.core.constants import *
+from cvar.gridworld.core import cvar_computation
 import numpy as np
 import copy
 
@@ -155,8 +155,8 @@ class ValueFunction:
 
     def optimal_path(self, alpha):
         """ Optimal deterministic path. """
-        from cvar.gridworld.util.policies import XiBasedPolicy, TamarVarBasedPolicy
-        from cvar.gridworld.util.runs import optimal_path
+        from cvar.gridworld.core.policies import XiBasedPolicy, TamarVarBasedPolicy
+        from cvar.gridworld.core.runs import optimal_path
         policy = XiBasedPolicy(self, alpha)
         return optimal_path(self.world, policy)
 
@@ -294,7 +294,7 @@ def value_iteration(world, V=None, max_iters=1e3, eps_convergence=1e-3):
 if __name__ == '__main__':
     import pickle
     from cvar.gridworld.plots.grid import InteractivePlotMachine
-    from cvar.gridworld.util.util import tick, tock
+    from cvar.gridworld.core.util import tick, tock
     np.random.seed(2)
     # ============================= new config
     tick()

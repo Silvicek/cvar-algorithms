@@ -1,6 +1,6 @@
 from cvar.gridworld.cliffwalker import *
 from cvar.gridworld.plots.grid import InteractivePlotMachine
-from cvar.gridworld.util.policies import VarBasedQPolicy, XiBasedPolicy
+from cvar.gridworld.core.policies import VarBasedQPolicy, XiBasedPolicy
 from cvar.gridworld.algorithms.q_learning import q_learning
 
 if __name__ == '__main__':
@@ -15,10 +15,10 @@ if __name__ == '__main__':
     Q = q_learning(world, run_alpha, max_episodes=10000)
     print('time=', time.time() - start)
 
-    pickle.dump((world, Q), open('../data/models/q_10_15.pkl', mode='wb'))
+    pickle.dump((world, Q), open('data/models/q_10_15.pkl', mode='wb'))
 
     # ============================= load
-    world, Q = pickle.load(open('../data/models/q_10_15.pkl', 'rb'))
+    world, Q = pickle.load(open('data/models/q_10_15.pkl', 'rb'))
 
     # ============================= RUN
     print('ATOMS:', Q.atoms)

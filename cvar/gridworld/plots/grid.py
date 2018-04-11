@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 from cvar.gridworld.cliffwalker import State
-from cvar.gridworld.util import cvar_computation
+from cvar.gridworld.core import cvar_computation
 
 # arrows
 offsets = {0: (0.4, 0), 1: (-0.4, 0), 2: (0, 0.4), 3: (0, -0.4)}

@@ -1,6 +1,6 @@
 from cvar.gridworld.cliffwalker import *
-from cvar.gridworld.util.constants import *
-from cvar.gridworld.util import cvar_computation
+from cvar.gridworld.core.constants import *
+from cvar.gridworld.core import cvar_computation
 import numpy as np
 from cvar.gridworld.plots.grid import InteractivePlotMachine
 
@@ -148,8 +148,8 @@ class ActionValueFunction:
 
     def optimal_path(self, alpha):
         """ Optimal deterministic path. """
-        from cvar.gridworld.util.policies import VarBasedQPolicy, XiBasedQPolicy, NaiveQPolicy
-        from cvar.gridworld.util.runs import optimal_path
+        from cvar.gridworld.core.policies import VarBasedQPolicy, XiBasedQPolicy, NaiveQPolicy
+        from cvar.gridworld.core.runs import optimal_path
         policy = VarBasedQPolicy(self, alpha)
         # policy = XiBasedQPolicy(self, alpha)
         # policy = NaiveQPolicy(self, alpha)

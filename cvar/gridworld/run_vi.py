@@ -1,11 +1,11 @@
 import time
-from cvar.gridworld.util.constants import gamma
-from cvar.gridworld.util.runs import epoch
+from cvar.gridworld.core.constants import gamma
+from cvar.gridworld.core.runs import epoch
 from cvar.gridworld.cliffwalker import *
 from cvar.gridworld.plots.grid import PlotMachine
-from cvar.gridworld.util.policies import GreedyPolicy, XiBasedPolicy, TamarVarBasedPolicy
+from cvar.gridworld.core.policies import GreedyPolicy, XiBasedPolicy, TamarVarBasedPolicy
 from cvar.gridworld.algorithms.value_iteration import value_iteration, ValueFunction, MarkovState
-from cvar.gridworld.util import cvar_computation
+from cvar.gridworld.core import cvar_computation
 
 
 
@@ -72,7 +72,7 @@ def exhaustive_stats(world, epochs, *args):
 if __name__ == '__main__':
     import pickle
     from cvar.gridworld.plots.grid import InteractivePlotMachine
-    from cvar.gridworld.util.util import tick, tock
+    from cvar.gridworld.core.util import tick, tock
 
     np.random.seed(2)
     # ============================= new config
