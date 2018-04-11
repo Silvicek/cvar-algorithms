@@ -1,5 +1,5 @@
 import time
-from cliffwalker import *
+from cvar.gridworld.cliffwalker import *
 
 
 def epoch(world, policy, max_iters=100, plot_machine=None):
