@@ -23,7 +23,7 @@ class ActionValueFunction:
         for v in V_x:
             for i, atom in enumerate(self.atoms[1:]):
                 V = self.Q[x.y, x.x, a].V[i]
-                yC = self.Q[x.y, x.x, a].yC[i]
+                yC = self.Q[x.y, x.x, a].yc[i]
 
                 # learning rates
                 lr_v = beta * self.atom_p[i]  # p mirrors magnitude (for log-spaced)
@@ -47,13 +47,13 @@ class ActionValueFunction:
                 # UPDATE CVaR
                 yCn = (1 - lr_yc) * yC + lr_yc * (atom*V + min(0, r+gamma*v - V))
                 if i == 0:
-                    self.Q[x.y, x.x, a].yC[i] = yCn
+                    self.Q[x.y, x.x, a].yc[i] = yCn
                 elif i == 1:
-                    ddy = self.Q[x.y, x.x, a].yC[0] / self.atom_p[0]  # TODO: check
-                    self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i - 1] + ddy * self.atom_p[i])
+                    ddy = self.Q[x.y, x.x, a].yc[0] / self.atom_p[0]  # TODO: check
+                    self.Q[x.y, x.x, a].yc[i] = max(yCn, self.Q[x.y, x.x, a].yc[i - 1] + ddy * self.atom_p[i])
                 else:
-                    ddy = (self.Q[x.y, x.x, a].yC[i-1] - self.Q[x.y, x.x, a].yC[i-2]) / self.atom_p[i-1] # TODO: check
-                    self.Q[x.y, x.x, a].yC[i] = max(yCn, self.Q[x.y, x.x, a].yC[i-1] + ddy*self.atom_p[i])
+                    ddy = (self.Q[x.y, x.x, a].yc[i-1] - self.Q[x.y, x.x, a].yc[i-2]) / self.atom_p[i-1] # TODO: check
+                    self.Q[x.y, x.x, a].yc[i] = max(yCn, self.Q[x.y, x.x, a].yc[i-1] + ddy*self.atom_p[i])
 
     def update_naive(self, x, a, x_, r, beta, id=None):
         """ CVaR TD update. """
@@ -63,7 +63,7 @@ class ActionValueFunction:
         for iv, v in enumerate(V_x):
             for i, atom in enumerate(self.atoms[1:]):
                 V = self.Q[x.y, x.x, a].V[i]
-                yC = self.Q[x.y, x.x, a].yC[i]
+                yC = self.Q[x.y, x.x, a].yc[i]
 
                 # learning rates
                 lr_v = beta * self.atom_p[iv]  # p mirrors magnitude (for log-spaced)
@@ -80,9 +80,9 @@ class ActionValueFunction:
 
                 # UPDATE CVaR
                 yCn = (1 - lr_yc) * yC + lr_yc * (atom*V + min(0, r+gamma*v - V))
-                self.Q[x.y, x.x, a].yC[i] = yCn
+                self.Q[x.y, x.x, a].yc[i] = yCn
                 # print(atom*V + min(0, r+gamma*v - V), end=', ')
-        print(self.Q[x.y, x.x, a].yC)
+        print(self.Q[x.y, x.x, a].yc)
         quit()
 
     def update(self, x, a, x_, r, beta, id=None):
@@ -90,7 +90,7 @@ class ActionValueFunction:
         V_x = self.joint_action_dist(x_)
 
         V = np.array(self.Q[x.y, x.x, a].V)
-        yC = np.array(self.Q[x.y, x.x, a].yC)
+        yC = np.array(self.Q[x.y, x.x, a].yc)
 
         lr_v = beta * self.atom_p[:, np.newaxis]
         lr_yc = beta * self.atom_p
@@ -104,7 +104,7 @@ class ActionValueFunction:
         self.Q[x.y, x.x, a].V += np.sum(v_update, axis=0)
 
         yCn = self.atoms[1:] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0)
-        self.Q[x.y, x.x, a].yC = (1 - beta) * yC + beta * np.average(yCn, axis=0, weights=lr_yc)
+        self.Q[x.y, x.x, a].yc = (1 - beta) * yC + beta * np.average(yCn, axis=0, weights=lr_yc)
 
     def next_action_alpha(self, x, alpha):
         yc = [self.Q[x.y, x.x, a].yc_alpha(alpha) for a in self.world.ACTIONS]
@@ -115,14 +115,14 @@ class ActionValueFunction:
         Select best action according to E[(Z-s)^-].
         If multiple 0's, use yCVaR_0.
         """
-        return max(self.world.ACTIONS, key=lambda a: (self.Q[x.y, x.x, a].cvar_pre_s(s), self.Q[x.y, x.x, a].yC[0]))
+        return max(self.world.ACTIONS, key=lambda a: (self.Q[x.y, x.x, a].cvar_pre_s(s), self.Q[x.y, x.x, a].yc[0]))
 
     def joint_action_dist(self, x, return_yc=False):
         """
         Returns a distribution representing the value function at state x.
         Constructed by taking a supremum of yC over actions for each atom.
         """
-        yc = [np.max([self.Q[x.y, x.x, a].yC[i] for a in self.world.ACTIONS]) for i in range(NB_ATOMS)]
+        yc = [np.max([self.Q[x.y, x.x, a].yc[i] for a in self.world.ACTIONS]) for i in range(NB_ATOMS)]
 
         if return_yc:
             return yc
@@ -134,7 +134,7 @@ class ActionValueFunction:
         Returns VaR estimates of the joint distribution.
         Constructed by taking a supremum of yC over actions for each atom.
         """
-        info = [max([(self.Q[x.y, x.x, a].yC[i], self.Q[x.y, x.x, a].V[i]) for a in self.world.ACTIONS]) for i in range(NB_ATOMS)]
+        info = [max([(self.Q[x.y, x.x, a].yc[i], self.Q[x.y, x.x, a].V[i]) for a in self.world.ACTIONS]) for i in range(NB_ATOMS)]
 
         return [ycv[1] for ycv in info]
 
@@ -173,7 +173,7 @@ class MarkovQState:
     def __init__(self, atoms):
         self.atoms = atoms
         self.V = np.zeros(NB_ATOMS)  # VaR estimate
-        self.yC = np.zeros(NB_ATOMS)  # CVaR estimate
+        self.yc = np.zeros(NB_ATOMS)  # CVaR estimate
 
     def plot(self, show=True, ax=None):
         import matplotlib.pyplot as plt
@@ -184,7 +184,7 @@ class MarkovQState:
         ax[0].step(self.atoms, list(self.V) + [self.V[-1]], 'o-', where='post')
 
         # yC
-        ax[1].plot(self.atoms, np.insert(self.yC, 0, 0), 'o-')
+        ax[1].plot(self.atoms, np.insert(self.yc, 0, 0), 'o-')
 
         # yC-> var
         v = self.dist_from_yc()
@@ -193,7 +193,7 @@ class MarkovQState:
             plt.show()
 
     def expected_value(self):
-        return self.yC[-1]
+        return self.yc[-1]
 
     def yc_alpha(self, alpha):
         """ linear interpolation: yC(alpha)"""
@@ -203,9 +203,9 @@ class MarkovQState:
                 break
         alpha_portion = (alpha - self.atoms[i-1]) / (self.atoms[i] - self.atoms[i-1])
         if i == 1:  # between 0 and first atom
-            return alpha_portion * self.yC[i-1]
+            return alpha_portion * self.yc[i-1]
         else:
-            return self.yC[i-2] + alpha_portion * (self.yC[i-1] - self.yC[i-2])
+            return self.yc[i-2] + alpha_portion * (self.yc[i-1] - self.yc[i-2])
 
     def var_alpha(self, alpha):
         """ VaR estimate of alpha. """
@@ -235,7 +235,7 @@ class MarkovQState:
         return yc
 
     def dist_from_yc(self):
-        return cvar_computation.yc_to_var(self.atoms, self.yC)
+        return cvar_computation.yc_to_var(self.atoms, self.yc)
 
 
 def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):

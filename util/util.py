@@ -37,3 +37,12 @@ def softmax(x):
     else:
         return exp / np.sum(exp)
 
+time_start = 0
+def tick():
+    import time
+    global time_start
+    time_start = time.time()
+
+def tock():
+    import time
+    print("t = {:.2f}".format(time.time() - time_start))

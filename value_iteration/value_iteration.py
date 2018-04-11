@@ -8,10 +8,6 @@ import copy
 # TAMAR_LP = True
 TAMAR_LP = False
 
-WASSERSTEIN = False
-# WASSERSTEIN = True
-
-
 class ValueFunction:
 
     def __init__(self, world):
@@ -21,13 +17,15 @@ class ValueFunction:
         for ix in np.ndindex(self.V.shape):
             self.V[ix] = MarkovState()
 
+        print('ATOMS:', list(self.V[0, 0].atoms))
+
     def update(self, y, x, check_bound=False):
 
         v_a, yc_a = self.action_v_yc(y, x)
 
         best_args = np.argmax(yc_a, axis=0)
 
-        self.V[y, x].yC = np.array([yc_a[best_args[i], i] for i in range(len(self.V[y, x].yC))])
+        self.V[y, x].yc = np.array([yc_a[best_args[i], i] for i in range(len(self.V[y, x].yc))])
 
         self.V[y, x].c_0 = max([cvar_computation.v_0_from_transitions(self.V, list(self.transitions(y, x, a)), gamma)
                                 for a in self.world.ACTIONS])
@@ -51,8 +49,6 @@ class ValueFunction:
             if TAMAR_LP:
                 v, yc = self.V[y, x].compute_cvar_by_lp([t_.prob for t_ in t], self.transition_ycs(y, x, a),
                                                         [self.V[tr.state.y, tr.state.x].atoms for tr in t])
-            elif WASSERSTEIN:
-                v, yc = self.V[y, x].compute_wasserstein([t_.prob for t_ in t], self.transition_vars(y, x, a))
             else:
                 v, yc = self.V[y, x].compute_cvar_by_sort([t_.prob for t_ in t], self.transition_vars(y, x, a),
                                                           [self.V[tr.state.y, tr.state.x].atoms for tr in t])
@@ -155,7 +151,7 @@ class ValueFunction:
         return np.array([t.reward + gamma * self.V[t.state.y, t.state.x].var for t in self.transitions(y, x, a)])
 
     def transition_ycs(self, y, x, a):
-        return np.array([t.reward*self.V[t.state.y, t.state.x].atoms[1:] + gamma * self.V[t.state.y, t.state.x].yC for t in self.transitions(y, x, a)])
+        return np.array([t.reward*self.V[t.state.y, t.state.x].atoms[1:] + gamma * self.V[t.state.y, t.state.x].yc for t in self.transitions(y, x, a)])
 
     def optimal_path(self, alpha):
         """ Optimal deterministic path. """
@@ -184,7 +180,7 @@ class ValueFunction:
 class MarkovState:
 
     def __init__(self):
-        self.yC = np.zeros(NB_ATOMS)
+        self.yc = np.zeros(NB_ATOMS)
         self.atoms = spaced_atoms(NB_ATOMS, SPACING, LOG_NB_ATOMS, LOG_THRESHOLD)    # e.g. [0, 0.25, 0.5, 1]
         self.atom_p = self.atoms[1:] - self.atoms[:-1]  # [0.25, 0.25, 0.5]
 
@@ -201,22 +197,22 @@ class MarkovState:
         ax[0].step(self.atoms, list(self.var) + [self.var[-1]], 'o-', where='post')
 
         # yV
-        ax[1].plot(self.atoms, np.insert(self.yC, 0, 0), 'o-')
+        ax[1].plot(self.atoms, np.insert(self.yc, 0, 0), 'o-')
         if show:
             plt.show()
 
     @property
     def var(self):
-        return cvar_computation.yc_to_var(self.atoms, self.yC)
+        return cvar_computation.yc_to_var(self.atoms, self.yc)
 
     @property
     def nb_atoms(self):
-        return len(self.yC)
+        return len(self.yc)
 
     def increase_precision(self, eps):
         """ Bound error by adding atoms. Follows the adaptive procedure from RSRDM. """
         new_atoms = []
-        v_0 = self.yC[0]
+        v_0 = self.yc[0]
         y = (eps*self.atom_p[0])/(np.abs(v_0-self.c_0))
         if y < 1e-15:
             print('SMALL')
@@ -228,7 +224,7 @@ class MarkovState:
         self.atoms = np.hstack((np.array([0]), new_atoms, self.atoms[1:]))
         self.atom_p = self.atoms[1:] - self.atoms[:-1]
 
-        self.yC = np.hstack((v_0*np.array(new_atoms), self.yC))
+        self.yc = np.hstack((v_0*np.array(new_atoms), self.yc))
 
     def cvar_alpha(self, alpha):
         return cvar_computation.single_alpha_to_cvar(self.atom_p, self.var, alpha)
@@ -238,9 +234,6 @@ class MarkovState:
 
     def compute_cvar_by_sort(self, transition_p, var_values, t_atoms):
         return cvar_computation.v_yc_from_t(self.atoms, transition_p, var_values, t_atoms)
-
-    def compute_wasserstein(self, transition_p, var_values):
-        raise NotImplementedError("Waiting for transfer from lp_compare and fix.")
 
     def compute_cvar_by_lp(self, transition_p, t_ycs, t_atoms):
         return cvar_computation.v_yc_from_t_lp(self.atoms, transition_p, t_ycs, t_atoms)
@@ -272,7 +265,7 @@ def value_difference(V, V_, world):
     return max_val, max_state
 
 
-def value_iteration(world, V=None, max_iters=1e3, eps_convergence=1e-5):
+def value_iteration(world, V=None, max_iters=1e3, eps_convergence=1e-3):
     if V is None:
         V = ValueFunction(world)
     i = 0
@@ -301,18 +294,18 @@ def value_iteration(world, V=None, max_iters=1e3, eps_convergence=1e-5):
 if __name__ == '__main__':
     import pickle
     from plots.grid import InteractivePlotMachine
+    from util.util import tick, tock
     np.random.seed(2)
     # ============================= new config
+    tick()
     world = GridWorld(40, 60, random_action_p=0.05)
     V = value_iteration(world, max_iters=1000)
-    pickle.dump((world, V), open('../files/models/vi_40_60_2.pkl', mode='wb'))
-
+    pickle.dump((world, V), open('../files/models/vi_test.pkl', mode='wb'))
+    tock()
     # ============================= load
-    world, V = pickle.load(open('../files/models/vi_40_60_2.pkl', 'rb'))
+    world, V = pickle.load(open('../files/models/vi_test.pkl', 'rb'))
 
     # ============================= RUN
-    print('ATOMS:', V.V[0, 0].atoms)
-
     for alpha in np.arange(0.05, 1.01, 0.05):
         print(alpha)
         pm = InteractivePlotMachine(world, V, alpha=alpha)

@@ -98,7 +98,7 @@ class InteractivePlotMachine:
 
         # combination of all actions
         V_x = self.V.V[y, x].var
-        yc_x = self.V.V[y, x].yC
+        yc_x = self.V.V[y, x].yc
         self.state_ax[0].step(self.V.V[y, x].atoms, list(V_x) + [V_x[-1]], '--', where='post')
         self.state_ax[1].plot(self.V.V[y, x].atoms, np.insert(yc_x, 0, 0), '--')
 
