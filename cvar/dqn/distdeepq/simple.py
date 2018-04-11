@@ -9,8 +9,8 @@ import baselines.common.tf_util as U
 
 from baselines import logger
 from baselines.common.schedules import LinearSchedule
-import distdeepq
-from distdeepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
+from .replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
+from .build_graph import build_act, build_train
 
 
 class ActWrapper(object):
@@ -22,7 +22,7 @@ class ActWrapper(object):
     def load(path, num_cpu=16):
         with open(path, "rb") as f:
             model_data, act_params = dill.load(f)
-        act = distdeepq.build_act(**act_params)
+        act = build_act(**act_params)
         sess = U.make_session(num_cpu=num_cpu)
         sess.__enter__()
         with tempfile.TemporaryDirectory() as td:
@@ -191,7 +191,7 @@ def learn(env,
     if dist_params is None:
         raise ValueError('dist_params is required')
 
-    act, train, update_target, debug = distdeepq.build_train(
+    act, train, update_target, debug = build_train(
         make_obs_ph=make_obs_ph,
         quant_func=quant_func,
         num_actions=env.action_space.n,

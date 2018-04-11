@@ -1,6 +1,6 @@
 import gym
 from baselines.common import set_global_seeds
-import distdeepq
+import cvar.dqn.distdeepq as distdeepq
 
 
 def callback(lcl, glb):

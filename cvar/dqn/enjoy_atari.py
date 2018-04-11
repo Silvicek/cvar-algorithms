@@ -8,7 +8,7 @@ from gym.monitoring import VideoRecorder
 
 import baselines.common.tf_util as U
 
-import distdeepq
+import cvar.dqn.distdeepq as distdeepq
 from baselines.common.misc_util import boolean_flag
 
 

@@ -1,5 +1,5 @@
 import numpy as np
-from util.util import spaced_atoms
+from cvar.gridworld.util.util import spaced_atoms
 
 np.random.seed(2)  # 10, 15
 # np.random.seed(6)  # 40, 60

@@ -1,4 +1,4 @@
-import distdeepq
+import cvar.dqn.distdeepq as distdeepq
 from baselines.common import set_global_seeds
 
 

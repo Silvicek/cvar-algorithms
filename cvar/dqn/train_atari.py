@@ -10,8 +10,8 @@ import json
 import baselines.common.tf_util as U
 
 from baselines import logger
-import distdeepq
-from distdeepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
+import cvar.dqn.distdeepq as distdeepq
+from cvar.dqn.distdeepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from baselines.common.misc_util import (
     boolean_flag,
     pickle_load,

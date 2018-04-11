@@ -5,7 +5,7 @@ import os
 import json
 import baselines.common.tf_util as U
 
-import distdeepq
+import cvar.dqn.distdeepq as distdeepq
 from baselines.common.misc_util import get_wrapper_by_name, SimpleMonitor, boolean_flag, set_global_seeds
 from baselines.common.atari_wrappers_deprecated import wrap_dqn
 
