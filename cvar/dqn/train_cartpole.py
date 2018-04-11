@@ -1,6 +1,6 @@
 import gym
 from baselines.common import set_global_seeds
-import cvar.dqn.distdeepq as distdeepq
+import cvar.dqn.core as dqn_core
 
 
 def callback(lcl, glb):
@@ -13,8 +13,8 @@ def main():
     env = gym.make("CartPole-v0")
     set_global_seeds(1337)
 
-    model = distdeepq.models.mlp([64])
-    act = distdeepq.learn(
+    model = dqn_core.models.mlp([64])
+    act = dqn_core.learn(
         env,
         quant_func=model,
         lr=1e-3,

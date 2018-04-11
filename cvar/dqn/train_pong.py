@@ -1,17 +1,17 @@
-import cvar.dqn.distdeepq as distdeepq
+import cvar.dqn.core as dqn_core
 from baselines.common import set_global_seeds
 
 
 def main():
     set_global_seeds(1337)
-    env, _ = distdeepq.make_env("Pong")
+    env, _ = dqn_core.make_env("Pong")
 
-    model = distdeepq.models.cnn_to_mlp(
+    model = dqn_core.models.cnn_to_mlp(
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
         hiddens=[256],
         dueling=False
     )
-    act = distdeepq.learn(
+    act = dqn_core.learn(
         env,
         quant_func=model,
         lr=1e-4,

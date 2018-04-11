@@ -1,13 +1,13 @@
-import cvar.dqn.distdeepq as distdeepq
+import cvar.dqn.core as dqn_core
 import numpy as np
 
 
 def main():
-    env, _ = distdeepq.make_env("Pong")
-    act = distdeepq.load("pong_model.pkl")
+    env, _ = dqn_core.make_env("Pong")
+    act = dqn_core.load("pong_model.pkl")
     print(act)
-    action_set = distdeepq.actions_from_env(env)
-    plot_machine = distdeepq.PlotMachine(act.get_dist_params(), env.action_space.n, action_set)
+    action_set = dqn_core.actions_from_env(env)
+    plot_machine = dqn_core.PlotMachine(act.get_dist_params(), env.action_space.n, action_set)
 
     while True:
         obs, done = env.reset(), False

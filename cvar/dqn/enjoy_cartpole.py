@@ -1,13 +1,13 @@
 import gym
 
-import cvar_algorithms.deep_q_learning.distdeepq as distdeepq
+import cvar.dqn.core as dqn_core
 
 
 def main():
     env = gym.make("CartPole-v0")
-    act = distdeepq.load("cartpole_model.pkl")
-    action_set = distdeepq.actions_from_env(env)
-    plot_machine = distdeepq.PlotMachine(act.get_dist_params(), env.action_space.n, action_set)
+    act = dqn_core.load("cartpole_model.pkl")
+    action_set = dqn_core.actions_from_env(env)
+    plot_machine = dqn_core.PlotMachine(act.get_dist_params(), env.action_space.n, action_set)
 
     while True:
         obs, done = env.reset(), False

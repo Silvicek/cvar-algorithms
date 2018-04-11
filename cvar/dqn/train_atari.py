@@ -10,8 +10,8 @@ import json
 import baselines.common.tf_util as U
 
 from baselines import logger
-import cvar.dqn.distdeepq as distdeepq
-from cvar.dqn.distdeepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
+import cvar.dqn.core as dqn_core
+from cvar.dqn.core.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from baselines.common.misc_util import (
     boolean_flag,
     pickle_load,
@@ -122,7 +122,7 @@ if __name__ == '__main__':
     else:
         container = None
     # Create and seed the env.
-    env, monitored_env = distdeepq.make_env(args.env)
+    env, monitored_env = dqn_core.make_env(args.env)
     if args.seed > 0:
         set_global_seeds(args.seed)
         env.unwrapped.seed(args.seed)
@@ -134,11 +134,11 @@ if __name__ == '__main__':
         with open(os.path.join(savedir, 'args.json'), 'w') as f:
             json.dump(vars(args), f)
 
-    with distdeepq.make_session(4) as sess:
+    with dqn_core.make_session(4) as sess:
         # Create training graph and replay buffer
-        act, train, update_target, debug = distdeepq.build_train(
+        act, train, update_target, debug = dqn_core.build_train(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
-            quant_func=distdeepq.models.atari_model(),
+            quant_func=dqn_core.models.atari_model(),
             num_actions=env.action_space.n,
             optimizer=tf.train.AdamOptimizer(learning_rate=args.lr, epsilon=0.01/args.batch_size),
             gamma=0.99,

@@ -5,7 +5,7 @@ import os
 import json
 import baselines.common.tf_util as U
 
-import cvar.dqn.distdeepq as distdeepq
+import cvar.dqn.core as dqn_core
 from baselines.common.misc_util import get_wrapper_by_name, SimpleMonitor, boolean_flag, set_global_seeds
 from baselines.common.atari_wrappers_deprecated import wrap_dqn
 
@@ -69,12 +69,12 @@ def main():
 
     with U.make_session(4) as sess:  # noqa
         _, env = make_env(args.env)
-        model_parent_path = distdeepq.parent_path(args.model_dir)
+        model_parent_path = dqn_core.parent_path(args.model_dir)
         old_args = json.load(open(model_parent_path + '/args.json'))
 
-        act = distdeepq.build_act(
+        act = dqn_core.build_act(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
-            p_dist_func=distdeepq.models.atari_model(),
+            p_dist_func=dqn_core.models.atari_model(),
             num_actions=env.action_space.n,
             dist_params={'Vmin': old_args['vmin'],
                          'Vmax': old_args['vmax'],
