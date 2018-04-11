@@ -3,6 +3,7 @@ from cvar.gridworld.core.constants import *
 from cvar.gridworld.core import cvar_computation
 import numpy as np
 from cvar.gridworld.plots.grid import InteractivePlotMachine
+from cvar.common.util import timed, spaced_atoms
 
 
 class ActionValueFunction:
@@ -238,6 +239,7 @@ class MarkovQState:
         return cvar_computation.yc_to_var(self.atoms, self.yc)
 
 
+@timed
 def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
     Q = ActionValueFunction(world, spaced_atoms(NB_ATOMS, SPACING, LOG_NB_ATOMS, LOG_THRESHOLD))
 
@@ -249,7 +251,7 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
     while e < max_episodes:
         if e % 10 == 0:
             print("e:{}, beta:{}".format(e, beta))
-            beta *= 0.995
+            beta = max(beta*0.995, 0.01)
         x = world.initial_state
         a = eps_greedy(Q.next_action_alpha(x, alpha), eps, world.ACTIONS)
         s = Q.var_alpha(x, a, alpha)
@@ -317,7 +319,7 @@ if __name__ == '__main__':
     # ============================= new config
     run_alpha = 0.3
     world = GridWorld(10, 15, random_action_p=0.1)
-    Q = q_learning(world, run_alpha, max_episodes=10000)
+    Q = q_learning(world, run_alpha, max_episodes=1000)
     print('time=', time.time() - start)
 
     pickle.dump((world, Q), open('../data/models/q_10_15.pkl', mode='wb'))
@@ -328,7 +330,7 @@ if __name__ == '__main__':
     # ============================= RUN
     print('ATOMS:', Q.atoms)
 
-    for alpha in np.arange(0.05, 1, 0.05):
+    for alpha in np.arange(0.05, 1.05, 0.05):
         print(alpha)
         pm = InteractivePlotMachine(world, Q, alpha=alpha, action_value=True)
         pm.show()

@@ -23,7 +23,7 @@ if __name__ == '__main__':
     # ============================= RUN
     print('ATOMS:', Q.atoms)
 
-    for alpha in np.arange(0.05, 1, 0.05):
+    for alpha in np.arange(0.05, 1.05, 0.05):
         print(alpha)
         pm = InteractivePlotMachine(world, Q, alpha=alpha, action_value=True)
         pm.show()

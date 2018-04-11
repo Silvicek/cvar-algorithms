@@ -1,10 +1,29 @@
 import numpy as np
 
-# def clip(ix):
-#     new_ix = max(0, min(MAX_VALUE - MIN_VALUE, ix))
-#     return new_ix
+
+def print_output(info_string):
+    """ Decorator that prints the output of a function, together with an information string. """
+    def wrap_output(func):
+        def func_wrapper(*args, **kwargs):
+            output = func(*args, **kwargs)
+            print(info_string, output)
+            return output
+        return func_wrapper
+    return wrap_output
 
 
+def timed(func):
+    """ Decorator that reports the runtime of a function. """
+    def func_wrapper(*args, **kwargs):
+        import time
+        start = time.time()
+        output = func(*args, **kwargs)
+        print("Running {} took {:.1f}s.".format(func.__name__, time.time()-start))
+        return output
+    return func_wrapper
+
+
+@print_output('ATOMS:')
 def spaced_atoms(nb_atoms, spacing, log_atoms, log_threshold):
     assert log_atoms <= nb_atoms
     assert spacing > 1
@@ -36,6 +55,7 @@ def softmax(x):
         return exp / np.sum(exp, axis=0)
     else:
         return exp / np.sum(exp)
+
 
 time_start = 0
 def tick():

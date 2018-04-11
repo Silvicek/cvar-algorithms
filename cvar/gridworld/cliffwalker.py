@@ -108,8 +108,8 @@ class GridWorld:
 
 
 if __name__ == '__main__':
-    from util.constants import *
-    from plots.grid import grid_plot
+    from cvar.gridworld.core.constants import *
+    from cvar.gridworld.plots.grid import grid_plot
     import matplotlib.pyplot as plt
 
     world = GridWorld(40, 60)

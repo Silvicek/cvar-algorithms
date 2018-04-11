@@ -1,12 +1,9 @@
-import time
+from cvar.gridworld.core.constants import gamma
+from cvar.gridworld.cliffwalker import *
+from cvar.gridworld.core import cvar_computation
 from cvar.gridworld.core.constants import gamma
 from cvar.gridworld.core.runs import epoch
-from cvar.gridworld.cliffwalker import *
-from cvar.gridworld.plots.grid import PlotMachine
-from cvar.gridworld.core.policies import GreedyPolicy, XiBasedPolicy, TamarVarBasedPolicy
-from cvar.gridworld.algorithms.value_iteration import value_iteration, ValueFunction, MarkovState
-from cvar.gridworld.core import cvar_computation
-
+from cvar.gridworld.algorithms.value_iteration import value_iteration
 
 
 def several_epochs(arg):
@@ -72,13 +69,13 @@ def exhaustive_stats(world, epochs, *args):
 if __name__ == '__main__':
     import pickle
     from cvar.gridworld.plots.grid import InteractivePlotMachine
-    from cvar.gridworld.core.util import tick, tock
+    from cvar.common.util import tick, tock
 
     np.random.seed(2)
     # ============================= new config
     tick()
     world = GridWorld(10, 15, random_action_p=0.05)
-    V = value_iteration(world, max_iters=1000)
+    V = value_iteration(world, max_iters=10000)
     pickle.dump((world, V), open('data/models/vi_test.pkl', mode='wb'))
     tock()
     # ============================= load
