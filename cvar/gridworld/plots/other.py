@@ -7,7 +7,7 @@ def plot_cvars():
     """ Old function to plot policy improvement comparisons. """
     import pickle
 
-    data = pickle.load(open('files/stats.pkl', 'rb'))
+    data = pickle.load(open('data/stats.pkl', 'rb'))
 
     cvars = data['cvars']
     alphas = np.tile(data['alphas'], (len(cvars), 1))

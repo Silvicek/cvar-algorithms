@@ -1,6 +1,6 @@
-from cliffwalker import *
-from util.constants import *
-from util import cvar_computation
+from cvar.gridworld.cliffwalker import *
+from cvar.gridworld.util.constants import *
+from cvar.gridworld.util import cvar_computation
 import numpy as np
 import copy
 
@@ -155,8 +155,8 @@ class ValueFunction:
 
     def optimal_path(self, alpha):
         """ Optimal deterministic path. """
-        from policy_improvement.policies import XiBasedPolicy, TamarVarBasedPolicy
-        from util.runs import optimal_path
+        from cvar.gridworld.util.policies import XiBasedPolicy, TamarVarBasedPolicy
+        from cvar.gridworld.util.runs import optimal_path
         policy = XiBasedPolicy(self, alpha)
         return optimal_path(self.world, policy)
 
@@ -293,17 +293,17 @@ def value_iteration(world, V=None, max_iters=1e3, eps_convergence=1e-3):
 
 if __name__ == '__main__':
     import pickle
-    from plots.grid import InteractivePlotMachine
-    from util.util import tick, tock
+    from cvar.gridworld.plots.grid import InteractivePlotMachine
+    from cvar.gridworld.util.util import tick, tock
     np.random.seed(2)
     # ============================= new config
     tick()
     world = GridWorld(40, 60, random_action_p=0.05)
     V = value_iteration(world, max_iters=1000)
-    pickle.dump((world, V), open('../files/models/vi_test.pkl', mode='wb'))
+    pickle.dump((world, V), open('../data/models/vi_test.pkl', mode='wb'))
     tock()
     # ============================= load
-    world, V = pickle.load(open('../files/models/vi_test.pkl', 'rb'))
+    world, V = pickle.load(open('../data/models/vi_test.pkl', 'rb'))
 
     # ============================= RUN
     for alpha in np.arange(0.05, 1.01, 0.05):

@@ -184,7 +184,7 @@ def plot_process():
     p, v = atom_p, cvar_computation.var_from_transitions_lp(atoms, transition_p, var_values)
     ax[0][3].step(np.insert(np.cumsum(p), 0, 0), np.insert(v, 0, v[0]), 'o-', where='pre')
 
-    plt.savefig('files/multivar.pdf')
+    plt.savefig('data/multivar.pdf')
     plt.show()
 
     fig, ax = plt.subplots(2, 4, figsize=(16, 8), sharey=True)
@@ -198,7 +198,7 @@ def plot_process():
     p, v = atom_p, cvar_computation.var_from_transitions_lp(atoms, transition_p, var_values)
     ax[1][3].plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * v), 0, 0), 'o-')
 
-    plt.savefig('files/multiycvar.pdf')
+    plt.savefig('data/multiycvar.pdf')
     plt.show()
 
 

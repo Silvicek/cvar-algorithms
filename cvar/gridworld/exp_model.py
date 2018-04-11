@@ -2,9 +2,9 @@
     Is not fully compatible with distributional setting.
 """
 
-from cliffwalker import GridWorld
-from plots.grid import show_fixed
-from util.constants import gamma
+from cvar.gridworld.cliffwalker import GridWorld
+from cvar.gridworld.plots.grid import show_fixed
+from cvar.gridworld.util.constants import gamma
 import numpy as np
 
 # ========================================
@@ -177,6 +177,6 @@ if __name__ == '__main__':
     Q = value_iteration(world)
     # Q = q_learning(world, max_episodes=10000)
 
-    pickle.dump((world, Q), open('../files/models/exp_10_15.pkl', mode='wb'))
+    pickle.dump((world, Q), open('../data/models/exp_10_15.pkl', mode='wb'))
 
     show_fixed(world, q_to_v_argmax(world, Q), np.argmax(Q, axis=0))

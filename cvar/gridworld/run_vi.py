@@ -1,12 +1,11 @@
 import time
-from util.constants import gamma
-from util.runs import epoch
-from cliffwalker import *
-from plots.grid import PlotMachine
-from policy_improvement.policies import GreedyPolicy, XiBasedPolicy, TamarVarBasedPolicy
-from value_iteration import value_iteration
-from util import cvar_computation
-from value_iteration import ValueFunction, MarkovState
+from cvar.gridworld.util.constants import gamma
+from cvar.gridworld.util.runs import epoch
+from cvar.gridworld.cliffwalker import *
+from cvar.gridworld.plots.grid import PlotMachine
+from cvar.gridworld.util.policies import GreedyPolicy, XiBasedPolicy, TamarVarBasedPolicy
+from cvar.gridworld.algorithms.value_iteration import value_iteration, ValueFunction, MarkovState
+from cvar.gridworld.util import cvar_computation
 
 
 
@@ -63,22 +62,33 @@ def exhaustive_stats(world, epochs, *args):
             print('{}_{} done...'.format(pol.__name__, alpha))
 
     import pickle
-    pickle.dump({'cvars': cvars, 'alphas': alphas, 'names': names}, open('files/stats.pkl', 'wb'))
+    pickle.dump({'cvars': cvars, 'alphas': alphas, 'names': names}, open('data/stats.pkl', 'wb'))
     print(cvars)
 
-    from plots.other import plot_cvars
+    from cvar.gridworld.plots.other import plot_cvars
     plot_cvars()
 
 
 if __name__ == '__main__':
     import pickle
-    world = GridWorld(10, 15, random_action_p=0.1)
+    from cvar.gridworld.plots.grid import InteractivePlotMachine
+    from cvar.gridworld.util.util import tick, tock
 
-    # =============== VI setup
-    world, V = pickle.load(open('../files/models/vi_10_15.pkl', 'rb'))
+    np.random.seed(2)
+    # ============================= new config
+    tick()
+    world = GridWorld(10, 15, random_action_p=0.05)
+    V = value_iteration(world, max_iters=1000)
+    pickle.dump((world, V), open('data/models/vi_test.pkl', mode='wb'))
+    tock()
+    # ============================= load
+    world, V = pickle.load(open('data/models/vi_test.pkl', 'rb'))
 
-    alpha = 0.1
-    policy = XiBasedPolicy(V, alpha)
+    # ============================= RUN
+    for alpha in np.arange(0.05, 1.01, 0.05):
+        print(alpha)
+        pm = InteractivePlotMachine(world, V, alpha=alpha)
+        pm.show()
 
     # =============== VI stats
     # nb_epochs = int(1e6)
@@ -90,11 +100,11 @@ if __name__ == '__main__':
     # policy_stats(world, var_policy, alpha, nb_epochs=nb_epochs)
 
     # =============== plot dynamic
-    V_visual = np.array([[V.V[i, j].cvar_alpha(alpha) for j in range(len(V.V[i]))] for i in range(len(V.V))])
-    # print(V_visual)
-    plot_machine = PlotMachine(world, V_visual)
-    # policy = var_policy
-    for i in range(100):
-        S, A, R = epoch(world, policy, plot_machine=plot_machine)
-        print('{}: {}'.format(i, np.sum(R)))
-        policy.reset()
+    # V_visual = np.array([[V.V[i, j].cvar_alpha(alpha) for j in range(len(V.V[i]))] for i in range(len(V.V))])
+    # # print(V_visual)
+    # plot_machine = PlotMachine(world, V_visual)
+    # # policy = var_policy
+    # for i in range(100):
+    #     S, A, R = epoch(world, policy, plot_machine=plot_machine)
+    #     print('{}: {}'.format(i, np.sum(R)))
+    #     policy.reset()

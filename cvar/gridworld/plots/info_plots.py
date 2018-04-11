@@ -8,8 +8,8 @@ from value_iteration.value_iteration import ValueFunction, MarkovState
 from cycler import cycler
 from util.runs import epoch
 
-model_path = '../files/models/'
-plots_path = '../files/plots/'
+model_path = '../data/models/'
+plots_path = '../data/plots/'
 
 # ============================= SETTINGS
 plt.rc('text', usetex=True)
@@ -67,11 +67,11 @@ def sample_histograms(alpha, suffix):
     print('CVaR_{}(exp)={}'.format(alpha, c_exp))
 
     # CVaR VI
-    # world, Q = pickle.load(open('../files/models/vi_10_15.pkl', 'rb'))
+    # world, Q = pickle.load(open('../data/models/vi_10_15.pkl', 'rb'))
     # scores_vi = generate_samples(world, XiBasedPolicy(Q, alpha))
 
     # Q-learned
-    world, Q = pickle.load(open('../files/models/q_'+suffix+'.pkl', 'rb'))
+    world, Q = pickle.load(open('../data/models/q_'+suffix+'.pkl', 'rb'))
     scores_q = generate_samples(world, VarBasedQPolicy(Q, alpha))
     v_q, c_q = var_cvar_from_samples(scores_q, alpha)
     print('CVaR_{}(q)={}'.format(alpha, c_q))

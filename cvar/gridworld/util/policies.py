@@ -1,6 +1,6 @@
 import numpy as np
-from util.constants import gamma
-from util import cvar_computation
+from cvar.gridworld.util.constants import gamma
+from cvar.gridworld.util import cvar_computation
 
 
 class Policy:

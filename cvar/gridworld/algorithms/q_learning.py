@@ -148,7 +148,7 @@ class ActionValueFunction:
 
     def optimal_path(self, alpha):
         """ Optimal deterministic path. """
-        from cvar.gridworld.policy_improvement.policies import VarBasedQPolicy, XiBasedQPolicy, NaiveQPolicy
+        from cvar.gridworld.util.policies import VarBasedQPolicy, XiBasedQPolicy, NaiveQPolicy
         from cvar.gridworld.util.runs import optimal_path
         policy = VarBasedQPolicy(self, alpha)
         # policy = XiBasedQPolicy(self, alpha)
@@ -320,10 +320,10 @@ if __name__ == '__main__':
     Q = q_learning(world, run_alpha, max_episodes=10000)
     print('time=', time.time() - start)
 
-    pickle.dump((world, Q), open('../files/models/q_10_15.pkl', mode='wb'))
+    pickle.dump((world, Q), open('../data/models/q_10_15.pkl', mode='wb'))
 
     # ============================= load
-    world, Q = pickle.load(open('../files/models/q_10_15.pkl', 'rb'))
+    world, Q = pickle.load(open('../data/models/q_10_15.pkl', 'rb'))
 
     # ============================= RUN
     print('ATOMS:', Q.atoms)
