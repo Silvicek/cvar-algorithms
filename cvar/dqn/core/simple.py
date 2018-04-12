@@ -103,13 +103,7 @@ def learn(env,
           learning_starts=1000,
           gamma=0.95,
           target_network_update_freq=500,
-          prioritized_replay=False,
-          prioritized_replay_alpha=0.6,
-          prioritized_replay_beta0=0.4,
-          prioritized_replay_beta_iters=None,
-          prioritized_replay_eps=1e-6,
           num_cpu=4,
-          param_noise=False,
           callback=None,
           dist_params=None
           ):
@@ -157,17 +151,6 @@ def learn(env,
         discount factor
     target_network_update_freq: int
         update the target network every `target_network_update_freq` steps.
-    prioritized_replay: True
-        if True prioritized replay buffer will be used.
-    prioritized_replay_alpha: float
-        alpha parameter for prioritized replay buffer
-    prioritized_replay_beta0: float
-        initial value of beta for prioritized replay buffer
-    prioritized_replay_beta_iters: int
-        number of iterations over which beta will be annealed from initial value
-        to 1.0. If set to None equals to max_timesteps.
-    prioritized_replay_eps: float
-        epsilon to add to the TD errors when updating priorities.
     num_cpu: int
         number of cpus to use for training
     callback: (locals, globals) -> None
@@ -195,10 +178,8 @@ def learn(env,
         make_obs_ph=make_obs_ph,
         quant_func=quant_func,
         num_actions=env.action_space.n,
-        # optimizer=tf.train.AdamOptimizer(learning_rate=lr, epsilon=0.01/32),
         optimizer=tf.train.AdamOptimizer(learning_rate=lr),
         gamma=gamma,
-        param_noise=param_noise,
         dist_params=dist_params
     )
 
@@ -210,16 +191,8 @@ def learn(env,
     }
 
     # Create the replay buffer
-    if prioritized_replay:
-        replay_buffer = PrioritizedReplayBuffer(buffer_size, alpha=prioritized_replay_alpha)
-        if prioritized_replay_beta_iters is None:
-            prioritized_replay_beta_iters = max_timesteps
-        beta_schedule = LinearSchedule(prioritized_replay_beta_iters,
-                                       initial_p=prioritized_replay_beta0,
-                                       final_p=1.0)
-    else:
-        replay_buffer = ReplayBuffer(buffer_size)
-        beta_schedule = None
+    replay_buffer = ReplayBuffer(buffer_size)
+    beta_schedule = None
     # Create the schedule for exploration starting from 1.
     exploration = LinearSchedule(schedule_timesteps=int(exploration_fraction * max_timesteps),
                                  initial_p=1.0,
@@ -233,10 +206,8 @@ def learn(env,
     saved_mean_reward = None
     obs = env.reset()
     reset = True
-    # init_w = [x for x in tf.trainable_variables() if x.name == 'distdeepq/target_q_func/action_value/fully_connected_1/weights:0']
-    # w = sess.run(init_w[0])
-    # print(tf.trainable_variables())
-    # print(np.mean(w), np.std(w))
+
+    # ===== RUN =====
     with tempfile.TemporaryDirectory() as td:
         model_saved = False
         model_file = os.path.join(td, "model")
@@ -245,25 +216,17 @@ def learn(env,
                 if callback(locals(), globals()):
                     break
             # Take action and update exploration to the newest value
-            kwargs = {}
-            if not param_noise:
-                update_eps = exploration.value(t)
-                update_param_noise_threshold = 0.
-            else:
-                update_eps = 0.
-                # Compute the threshold such that the KL divergence between perturbed and non-perturbed
-                # policy is comparable to eps-greedy exploration with eps = exploration.value(t).
-                # See Appendix C.1 in Parameter Space Noise for Exploration, Plappert et al., 2017
-                # for detailed explanation.
-                update_param_noise_threshold = -np.log(1. - exploration.value(t) + exploration.value(t) / float(env.action_space.n))
-                kwargs['reset'] = reset
-                kwargs['update_param_noise_threshold'] = update_param_noise_threshold
-                kwargs['update_param_noise_scale'] = True
+            update_eps = exploration.value(t)
+            update_param_noise_threshold = 0.
+
+            # ===== DEBUG =====
             # print(debug['quant_values'](np.ones_like(np.array(obs)[None])))
             # print(debug['quant_values'](np.array(obs)[None]))
             # print(np.array(obs)[None])
             # quit()
-            action = act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
+            # =================
+
+            action = act(np.array(obs)[None], update_eps=update_eps)[0]
             reset = False
             new_obs, rew, done, _ = env.step(action)
 
@@ -279,23 +242,17 @@ def learn(env,
 
             if t > learning_starts and t % train_freq == 0:
                 # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
-                if prioritized_replay:
-                    experience = replay_buffer.sample(batch_size, beta=beta_schedule.value(t))
-                    (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
-                else:
-                    obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
-                    weights, batch_idxes = np.ones_like(rewards), None
+
+                obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(batch_size)
+                weights, batch_idxes = np.ones_like(rewards), None
 
                 errors = train(obses_t, actions, rewards, obses_tp1, dones, weights)
-
-                if prioritized_replay:
-                    new_priorities = np.abs(errors) + prioritized_replay_eps
-                    replay_buffer.update_priorities(batch_idxes, new_priorities)
 
             if t > learning_starts and t % target_network_update_freq == 0:
                 # Update target network periodically.
                 update_target()
 
+            # Log results and periodically save the model
             mean_100ep_reward = round(np.mean(episode_rewards[-101:-1]), 1)
             num_episodes = len(episode_rewards)
             if done and print_freq is not None and len(episode_rewards) % print_freq == 0:

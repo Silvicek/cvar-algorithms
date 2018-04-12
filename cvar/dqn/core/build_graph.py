@@ -69,21 +69,6 @@ import tensorflow as tf
 import baselines.common.tf_util as U
 
 
-def default_param_noise_filter(var):
-    if var not in tf.trainable_variables():
-        # We never perturb non-trainable vars.
-        return False
-    if "fully_connected" in var.name:
-        # We perturb fully-connected layers.
-        return True
-
-    # The remaining layers are likely conv or layer norm layers, which we do not wish to
-    # perturb (in the former case because they only extract features, in the latter case because
-    # we use them for normalization purposes). If you change your network, you will likely want
-    # to re-consider which layers to perturb and which to keep untouched.
-    return False
-
-
 def quant_to_q(p_values):
     return tf.reduce_mean(p_values, axis=-1)
 
@@ -149,8 +134,7 @@ def build_act(make_obs_ph, p_dist_func, num_actions, dist_params, scope="distdee
 
 
 def build_train(make_obs_ph, quant_func, num_actions, optimizer, grad_norm_clipping=None, gamma=1.0,
-                double_q=False, scope="distdeepq", reuse=None, param_noise=False, param_noise_filter_func=None,
-                dist_params=None):
+                scope="distdeepq", reuse=None, param_noise=False, dist_params=None):
     """Creates the train function:
 
     Parameters
@@ -177,18 +161,12 @@ def build_train(make_obs_ph, quant_func, num_actions, optimizer, grad_norm_clipp
         clip gradient norms to this value. If None no clipping is performed.
     gamma: float
         discount rate.
-    double_q: bool
-        if true will use Double Q Learning (https://arxiv.org/abs/1509.06461).
-        In general it is a good idea to keep it enabled.
     scope: str or VariableScope
         optional scope for variable_scope.
     reuse: bool or None
         whether or not the variables should be reused. To be able to reuse the scope must be given.
     param_noise: bool
         whether or not to use parameter space noise (https://arxiv.org/abs/1706.01905)
-    param_noise_filter_func: tf.Variable -> bool
-        function that decides whether or not a variable should be perturbed. Only applicable
-        if param_noise is True. If set to None, default_param_noise_filter is used by default.
 
     Returns
     -------
@@ -229,9 +207,6 @@ def build_train(make_obs_ph, quant_func, num_actions, optimizer, grad_norm_clipp
         # target q network evalution
         quant_tp1 = quant_func(obs_tp1_input.get(), num_actions, nb_atoms, scope="target_q_func")
         target_q_func_vars = U.scope_vars(U.absolute_scope_name("target_q_func"))
-
-        if double_q:
-            raise NotImplementedError()
 
         # quantiles for actions which we know were selected in the given state.
         quant_t_selected = gather_along_second_axis(quant_t, act_t_ph)

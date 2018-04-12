@@ -5,7 +5,7 @@ import cvar.dqn.core as dqn_core
 
 def main():
     env = gym.make("CartPole-v0")
-    act = dqn_core.load("cartpole_model.pkl")
+    act = dqn_core.load("models/cartpole_model.pkl")
     action_set = dqn_core.actions_from_env(env)
     plot_machine = dqn_core.PlotMachine(act.get_dist_params(), env.action_space.n, action_set)
 

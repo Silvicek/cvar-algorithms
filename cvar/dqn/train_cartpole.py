@@ -28,7 +28,7 @@ def main():
         dist_params={'nb_atoms': 10, 'huber_loss': True}
     )
     print("Saving model to cartpole_model.pkl")
-    act.save("cartpole_model.pkl")
+    act.save("models/cartpole_model.pkl")
 
 
 if __name__ == '__main__':

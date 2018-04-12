@@ -38,18 +38,9 @@ def parse_args():
     parser.add_argument("--batch-size", type=int, default=32, help="number of transitions to optimize at the same time")
     parser.add_argument("--learning-freq", type=int, default=4, help="number of iterations between every optimization step")
     parser.add_argument("--target-update-freq", type=int, default=10000, help="number of iterations between every target network update")
-    parser.add_argument("--param-noise-update-freq", type=int, default=50, help="number of iterations between every re-scaling of the parameter noise")
-    parser.add_argument("--param-noise-reset-freq", type=int, default=10000, help="maximum number of steps to take per episode before re-perturbing the exploration policy")
     # Bells and whistles
-    boolean_flag(parser, "double-q", default=False, help="whether or not to use double q learning")
-    boolean_flag(parser, "dueling", default=False, help="whether or not to use dueling model")
-    boolean_flag(parser, "prioritized", default=False, help="whether or not to use prioritized replay buffer")
-    boolean_flag(parser, "param-noise", default=False, help="whether or not to use parameter space noise for exploration")
     boolean_flag(parser, "layer-norm", default=False, help="whether or not to use layer norm (should be True if param_noise is used)")
     boolean_flag(parser, "gym-monitor", default=False, help="whether or not to use a OpenAI Gym monitor (results in slower training due to video recording)")
-    parser.add_argument("--prioritized-alpha", type=float, default=0.6, help="alpha parameter for prioritized replay buffer")
-    parser.add_argument("--prioritized-beta0", type=float, default=0.4, help="initial value of beta parameters for prioritized replay")
-    parser.add_argument("--prioritized-eps", type=float, default=1e-6, help="eps parameter for prioritized replay buffer")
     # Distributional Perspective
     boolean_flag(parser, "huber-loss", default=True, help="whether or not to use quantile huber loss")
     parser.add_argument("--nb-atoms", type=int, default=100, help="number of quantile atoms")
@@ -142,8 +133,6 @@ if __name__ == '__main__':
             num_actions=env.action_space.n,
             optimizer=tf.train.AdamOptimizer(learning_rate=args.lr, epsilon=0.01/args.batch_size),
             gamma=0.99,
-            double_q=args.double_q,
-            param_noise=args.param_noise,
             dist_params={'huber_loss': args.huber_loss,
                          'nb_atoms': args.nb_atoms}
         )

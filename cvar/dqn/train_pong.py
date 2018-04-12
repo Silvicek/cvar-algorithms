@@ -23,11 +23,10 @@ def main():
         learning_starts=10000,
         target_network_update_freq=1000,
         gamma=0.99,
-        prioritized_replay=False,
         batch_size=32,
         dist_params={'nb_atoms': 10, 'huber_loss': True}
     )
-    act.save("pong_model.pkl")
+    act.save("models/pong_model.pkl")
     env.close()
 
 
