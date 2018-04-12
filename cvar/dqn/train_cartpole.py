@@ -13,10 +13,11 @@ def main():
     env = gym.make("CartPole-v0")
     set_global_seeds(1337)
 
-    model = dqn_core.models.mlp([64])
+    var_func, cvar_func = dqn_core.models.mlp([64])
     act = dqn_core.learn(
         env,
-        quant_func=model,
+        var_func,
+        cvar_func,
         lr=1e-3,
         max_timesteps=100000,
         buffer_size=50000,

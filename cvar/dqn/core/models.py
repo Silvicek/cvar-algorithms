@@ -21,10 +21,16 @@ def _mlp(hiddens, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=Fa
         out = layers.fully_connected(out, num_outputs=num_actions * nb_atoms, activation_fn=None)
 
         out = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name='quantiles')
-        return out
+
+        with tf.variable_scope("var", reuse=reuse):
+            out_var = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name='quantiles')
+        with tf.variable_scope("cvar", reuse=reuse):
+            out_cvar = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name='quantiles')
+
+    return out_var, out_cvar
 
 
-def mlp(hiddens=[], layer_norm=False):
+def mlp(hiddens, layer_norm=False):
     """This model takes as input an observation and returns values of all actions.
 
     Parameters
@@ -34,8 +40,10 @@ def mlp(hiddens=[], layer_norm=False):
 
     Returns
     -------
-    p_dist_func: function
-        p_dist_function for DistDQN algorithm.
+    var_func: function
+        representing the VaR of the CVaR DQN algorithm
+    cvar_func: function
+        representing the yCVaRy of the CVaR DQN algorithm
     """
     return lambda *args, **kwargs: _mlp(hiddens, layer_norm=layer_norm, *args, **kwargs)
 
