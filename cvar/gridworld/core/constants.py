@@ -9,8 +9,8 @@ gamma = 0.95
 
 
 # atom spacing
-NB_ATOMS = 10
-LOG_NB_ATOMS = 10  # number of log atoms
+NB_ATOMS = 20
+LOG_NB_ATOMS = 0  # number of log atoms
 LOG_THRESHOLD = 1.0  # where does the log start (1 for full log)
 SPACING = 2
 

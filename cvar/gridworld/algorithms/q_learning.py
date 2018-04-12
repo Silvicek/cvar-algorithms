@@ -247,6 +247,9 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
     eps = 0.4
     beta = .6
 
+    # count visits for debugging purposes
+    counter = np.zeros((world.height, world.width), dtype=int)
+
     e = 0
     while e < max_episodes:
         if e % 10 == 0:
@@ -257,6 +260,9 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
         s = Q.var_alpha(x, a, alpha)
         i = 0
         while x not in world.goal_states and i < max_episode_length:
+
+            counter[x.y, x.x] += 1
+
             a = eps_greedy(Q.next_action_s(x, s), eps, world.ACTIONS)
             t = world.sample_transition(x, a)
             x_, r = t.state, t.reward
@@ -271,6 +277,14 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
 
         # if x in world.goal_states and r == -1:
         #     print('(success)')
+
+    # # show visit counts
+    # import matplotlib.pyplot as plt
+    # fig, ax = plt.subplots()
+    # ax.imshow(counter)
+    # for (j, i), label in np.ndenumerate(counter):
+    #     ax.text(i, j, label, ha='center', va='center', color='white')
+    # ax.set_title('Run alpha={}'.format(alpha))
 
     return Q
 

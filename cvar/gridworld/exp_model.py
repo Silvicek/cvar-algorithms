@@ -171,12 +171,12 @@ def q_to_v_argmax(world, Q):
 if __name__ == '__main__':
     import pickle
     np.random.seed(2)
-    world = GridWorld(40, 60, random_action_p=0.05)
+    world = GridWorld(10, 15, random_action_p=0.1)
 
     # Q = policy_iteration(world)
-    Q = value_iteration(world)
-    # Q = q_learning(world, max_episodes=10000)
+    # Q = value_iteration(world)
+    Q = q_learning(world, max_episodes=10000)
 
-    pickle.dump((world, Q), open('../data/models/exp_10_15.pkl', mode='wb'))
+    pickle.dump((world, Q), open('data/models/exp_10_15.pkl', mode='wb'))
 
     show_fixed(world, q_to_v_argmax(world, Q), np.argmax(Q, axis=0))

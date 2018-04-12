@@ -69,15 +69,13 @@ def exhaustive_stats(world, epochs, *args):
 if __name__ == '__main__':
     import pickle
     from cvar.gridworld.plots.grid import InteractivePlotMachine
-    from cvar.common.util import tick, tock
 
     np.random.seed(2)
     # ============================= new config
-    tick()
     world = GridWorld(10, 15, random_action_p=0.05)
     V = value_iteration(world, max_iters=10000)
     pickle.dump((world, V), open('data/models/vi_test.pkl', mode='wb'))
-    tock()
+
     # ============================= load
     world, V = pickle.load(open('data/models/vi_test.pkl', 'rb'))
 
