@@ -20,14 +20,8 @@ def _mlp(hiddens, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=Fa
 
         out = layers.fully_connected(out, num_outputs=num_actions * nb_atoms, activation_fn=None)
 
-        out = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name='quantiles')
 
-        with tf.variable_scope("var", reuse=reuse):
-            out_var = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name='quantiles')
-        with tf.variable_scope("cvar", reuse=reuse):
-            out_cvar = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name='quantiles')
-
-    return out_var, out_cvar
+    return out
 
 
 def mlp(hiddens, layer_norm=False):
@@ -45,7 +39,18 @@ def mlp(hiddens, layer_norm=False):
     cvar_func: function
         representing the yCVaRy of the CVaR DQN algorithm
     """
-    return lambda *args, **kwargs: _mlp(hiddens, layer_norm=layer_norm, *args, **kwargs)
+    def last_layer(name, hiddens, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=False):
+        out = _mlp(hiddens, inpt, num_actions, nb_atoms, scope, reuse, layer_norm)
+        with tf.variable_scope(scope, reuse=reuse):
+            with tf.variable_scope(name, reuse=reuse):
+                out_var = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name=name+'_out')
+        return out_var
+
+    var_func = lambda *args, **kwargs: last_layer('var', hiddens, layer_norm=layer_norm, *args, **kwargs)
+    cvar_func = lambda *args, **kwargs: last_layer('cvar', hiddens, layer_norm=layer_norm, *args, **kwargs)
+
+    return var_func, cvar_func
+
 
 
 def _cnn_to_mlp(convs, hiddens, dueling, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=False):

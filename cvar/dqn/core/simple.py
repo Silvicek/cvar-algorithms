@@ -92,6 +92,7 @@ def make_session(num_cpu):
 def learn(env,
           var_func,
           cvar_func,
+          run_alpha,
           lr=5e-4,
           max_timesteps=100000,
           buffer_size=50000,
@@ -231,7 +232,7 @@ def learn(env,
             # quit()
             # =================
 
-            action = act(np.array(obs)[None], update_eps=update_eps)[0]
+            action = act(np.array(obs)[None], run_alpha, update_eps=update_eps)[0]
             reset = False
             new_obs, rew, done, _ = env.step(action)
 

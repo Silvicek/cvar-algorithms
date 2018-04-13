@@ -103,23 +103,23 @@ def pick_action(cvar_values, alpha, nb_atoms):
 
     ix_f = alpha*nb_atoms - 1
     ix_int = tf.cast(ix_f, tf.int32)
-    portion = ix_f - ix_int
+    portion = ix_f - tf.cast(ix_int, tf.float32)
 
-    ix_next = tf.cond(alpha == 1., lambda: ix_int, lambda: ix_int+1)
+    ix_next = tf.cond(tf.equal(alpha, tf.constant(1, tf.float32)), lambda: ix_int, lambda: ix_int+1)
 
     cvar_alpha = cvar_values[:, :, ix_int] * (1-portion) + cvar_values[:, :, ix_next] * portion
 
     return tf.argmax(cvar_alpha, axis=-1, output_type=tf.int32)
 
 
-def build_act(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, scope="cvar_dqn", reuse=None):
+def build_act(make_obs_ph, cvar_func, num_actions, nb_atoms, scope="cvar_dqn", reuse=None):
     """Creates the act function:
 
     Parameters
     ----------
     make_obs_ph: str -> tf.placeholder or TfInput
         a function that take a name and creates a placeholder of input with that name
-    var_func: (tf.Variable, int, str, bool) -> tf.Variable
+    cvar_func: (tf.Variable, int, str, bool) -> tf.Variable
         the model that takes the following inputs:
             observation_in: object
                 the output of observation placeholder
@@ -129,8 +129,6 @@ def build_act(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, scope="cv
             reuse: bool
                 should be passed to outer variable scope
         and returns a tensor of shape (batch_size, num_actions) with values of every action.
-    cvar_func: (tf.Variable, int, int, str, bool) -> tf.Variable
-        see var_func
     num_actions: int
         number of actions.
     nb_atoms: int
@@ -149,7 +147,7 @@ def build_act(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, scope="cv
     with tf.variable_scope(scope, reuse=reuse):
         observations_ph = U.ensure_tf_input(make_obs_ph("observation"))
         # alpha in cvar_alpha
-        alpha_ph = U.ensure_tf_input(tf.placeholder(tf.float32, [None], name="alpha"))
+        alpha_ph = U.ensure_tf_input(tf.placeholder(tf.float32, (), name="alpha"))
 
         stochastic_ph = tf.placeholder(tf.bool, (), name="stochastic")
         update_eps_ph = tf.placeholder(tf.float32, (), name="update_eps")
@@ -157,9 +155,9 @@ def build_act(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, scope="cv
         # eps in epsilon-greedy
         eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(0))
 
-        var_values = var_func(observations_ph.get(), num_actions, nb_atoms, scope="var_func")
+        # var_values = var_func(observations_ph.get(), num_actions, nb_atoms, scope="var_func", reuse=tf.AUTO_REUSE)
         cvar_values = cvar_func(observations_ph.get(), num_actions, nb_atoms, scope="cvar_func")
-        deterministic_actions = pick_action(cvar_values, alpha_ph.get())
+        deterministic_actions = pick_action(cvar_values, alpha_ph.get(), nb_atoms)
 
         batch_size = tf.shape(observations_ph.get())[0]
         random_actions = tf.random_uniform(tf.stack([batch_size]), minval=0, maxval=num_actions, dtype=tf.int32)
@@ -181,9 +179,9 @@ def extract_distribution(y_cvar):
     """
     # TODO: casting is more efficient?
 
-    yc_shift = tf.roll(y_cvar, 1, axis=-1)
-    yc_shift[:, 0] = 0
-    return y_cvar - yc_shift
+    dist_cropped = y_cvar[:, 1:] - y_cvar[:, :-1]
+    dist = tf.concat((y_cvar[:, 0, None], dist_cropped), axis=1)
+    return dist
 
 
 def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_norm_clipping=None, gamma=1.0,
@@ -237,8 +235,8 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
     debug: {str: function}
         a bunch of functions to print debug data like q_values.
     """
-
-    act_f = build_act(make_obs_ph, var_func, cvar_func, num_actions, dist_params, scope=scope, reuse=reuse)
+    nb_atoms = dist_params['nb_atoms']
+    act_f = build_act(make_obs_ph, cvar_func, num_actions, nb_atoms, scope=scope, reuse=reuse)
 
     with tf.variable_scope(scope, reuse=reuse):
         # set up placeholders
@@ -250,12 +248,11 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         importance_weights_ph = tf.placeholder(tf.float32, [None], name="weight")
 
         # ========================= Building the loss functions =========================
-        nb_atoms = dist_params['nb_atoms']
         batch_dim = tf.shape(rew_t_ph)[0]
 
         # ------------------------------- Core networks ---------------------------------
         # var network
-        var_t = var_func(obs_t_input.get(), num_actions, nb_atoms, scope="var_func", reuse=True)  # reuse from act
+        var_t = var_func(obs_t_input.get(), num_actions, nb_atoms, scope="var_func", reuse=tf.AUTO_REUSE)
         var_func_variables = U.scope_vars(U.absolute_scope_name("var_func"))
 
         # vars for actions which we know were selected in the given state.
@@ -264,7 +261,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
 
         # cvar network
         cvar_t = cvar_func(obs_t_input.get(), num_actions, nb_atoms, scope="cvar_func", reuse=True)  # reuse from act
-        cvar_func_variables = U.scope_vars(U.absolute_scope_name("var_func"))
+        cvar_func_variables = U.scope_vars(U.absolute_scope_name("cvar_func"))
 
         # cvars for actions which we know were selected in the given state.
         cvar_t_selected = gather_along_second_axis(cvar_t, act_t_ph)
@@ -280,7 +277,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         # a_star = pick_actions(cvar_tp1)
         # cvar_tp1_star = gather_along_second_axis(cvar_tp1, a_star)
         # TODO: check
-        cvar_tp1_star = tf.reduce_max(cvar_tp1, axis=-1)
+        cvar_tp1_star = tf.reduce_max(cvar_tp1, axis=1)
         cvar_tp1_star.set_shape([None, nb_atoms])
         # construct a distribution from the new cvar
         dist_tp1_star = extract_distribution(cvar_tp1_star)
@@ -289,6 +286,8 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
 
         # Tth = r + gamma * th
         dist_target = tf.identity(rew_t_ph[:, tf.newaxis] + gamma * dist_tp1_star, name='dist_target')
+        # dist is always non-differentiable
+        dist_target = tf.stop_gradient(dist_target)
 
         # increase dimensions (?, nb_atoms, nb_atoms)
         big_dist_target = tf.transpose(
@@ -313,7 +312,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         #   [th1 th2 ... thn]]
 
         # var loss
-        td_error = tf.stop_gradient(big_dist_target) - big_var_t_selected
+        td_error = big_dist_target - big_var_t_selected
         # td_error[0]=
         #  [[Tth1-th1 Tth1-th2 ... Tth1-thn]
         #   [Tth2-th1 Tth2-th2 ... Tth2-thn]
@@ -348,7 +347,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
             tf.tile(cvar_t_selected, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
             name='big_cvar_t_selected')
 
-        y_target = y * tf.stop_gradient(big_dist_target)
+        y_target = y * big_dist_target
 
         cvar_loss = negative_indicator * (y_target * big_cvar_t_selected)
 

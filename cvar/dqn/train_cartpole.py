@@ -18,6 +18,7 @@ def main():
         env,
         var_func,
         cvar_func,
+        run_alpha=0.5,
         lr=1e-3,
         max_timesteps=100000,
         buffer_size=50000,
@@ -26,7 +27,7 @@ def main():
         print_freq=10,
         callback=callback,
         batch_size=32,
-        dist_params={'nb_atoms': 10, 'huber_loss': True}
+        dist_params={'nb_atoms': 10, 'huber_loss': False}
     )
     print("Saving model to cartpole_model.pkl")
     act.save("models/cartpole_model.pkl")
