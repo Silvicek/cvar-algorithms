@@ -80,17 +80,16 @@ def pick_actions(cvar_values):
 
     Returns
     -------
-    # TODO: max is simpler?
     (?, nb_atoms)
     """
-    raise NotImplementedError()
-    deterministic_actions = tf.argmax(q_values, axis=-1, output_type=tf.int32)
+    deterministic_actions = tf.argmax(cvar_values, axis=-1, output_type=tf.int32)
     return deterministic_actions
 
 
-def pick_action(cvar_values, alpha):
+def pick_action(cvar_values, alpha, nb_atoms):
     """
     Pick a single action based on CVaR_alpha.
+    Assumes linearly spaced atoms.
 
     Parameters
     ----------
@@ -101,7 +100,16 @@ def pick_action(cvar_values, alpha):
     (?,)
 
     """
-    raise NotImplementedError()
+
+    ix_f = alpha*nb_atoms - 1
+    ix_int = tf.cast(ix_f, tf.int32)
+    portion = ix_f - ix_int
+
+    ix_next = tf.cond(alpha == 1., lambda: ix_int, lambda: ix_int+1)
+
+    cvar_alpha = cvar_values[:, :, ix_int] * (1-portion) + cvar_values[:, :, ix_next] * portion
+
+    return tf.argmax(cvar_alpha, axis=-1, output_type=tf.int32)
 
 
 def build_act(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, scope="cvar_dqn", reuse=None):
@@ -165,6 +173,17 @@ def build_act(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, scope="cv
                          givens={update_eps_ph: -1.0, stochastic_ph: True},
                          updates=[update_eps_expr])
         return act
+
+
+def extract_distribution(y_cvar):
+    """ Convert yC -> underlying distribution.
+        y_cvar: (?, nb_atoms)
+    """
+    # TODO: casting is more efficient?
+
+    yc_shift = tf.roll(y_cvar, 1, axis=-1)
+    yc_shift[:, 0] = 0
+    return y_cvar - yc_shift
 
 
 def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_norm_clipping=None, gamma=1.0,
@@ -252,15 +271,16 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         cvar_t_selected.set_shape([None, nb_atoms])
 
         # target cvar network
-        cvar_tp1 = cvar_func(obs_tp1_input.get(), num_actions, nb_atoms, scope="target_var_func")
-        target_cvar_func_variables = U.scope_vars(U.absolute_scope_name("target_var_func"))
+        cvar_tp1 = cvar_func(obs_tp1_input.get(), num_actions, nb_atoms, scope="target_cvar_func")
+        target_cvar_func_variables = U.scope_vars(U.absolute_scope_name("target_cvar_func"))
         # -------------------------------------------------------------------------------
 
         # ----------------------------- Extract distribution ----------------------------
         # construct a new cvar with different actions for each atom
-        # TODO: join next two statements (?) also the meaning has changed
-        a_star = pick_actions(cvar_tp1)
-        cvar_tp1_star = gather_along_second_axis(cvar_tp1, a_star)
+        # a_star = pick_actions(cvar_tp1)
+        # cvar_tp1_star = gather_along_second_axis(cvar_tp1, a_star)
+        # TODO: check
+        cvar_tp1_star = tf.reduce_max(cvar_tp1, axis=-1)
         cvar_tp1_star.set_shape([None, nb_atoms])
         # construct a distribution from the new cvar
         dist_tp1_star = extract_distribution(cvar_tp1_star)
@@ -301,14 +321,14 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         #   [Tthn-th1 Tthn-th2 ... Tthn-thn]]
         # TODO: skip tiling
         negative_indicator = tf.cast(td_error < 0, tf.float32)
-        tau = tf.range(1, nb_atoms + 1, dtype=tf.float32, name='tau') * 1. / nb_atoms
+        y = tf.range(1, nb_atoms + 1, dtype=tf.float32, name='tau') * 1. / nb_atoms
 
         if dist_params['huber_loss']:
             huber_loss = U.huber_loss(td_error)
-            var_weights = tf.abs(tau - negative_indicator)
+            var_weights = tf.abs(y - negative_indicator)
             quantile_loss = var_weights * huber_loss
         else:
-            var_weights = tau - negative_indicator
+            var_weights = y - negative_indicator
             quantile_loss = var_weights * td_error
 
         # # elaborate:
@@ -320,6 +340,19 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         # -------------------------------------------------------------------------------
 
         # ------------------------------- Build CVaR loss -------------------------------
+        y = 1./nb_atoms
+        # Minimizing the MSE of:
+        # 1(V > r + gamma*v_j)*(y*(r + gamma*v_j) - yC_i)
+
+        big_cvar_t_selected = tf.reshape(
+            tf.tile(cvar_t_selected, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
+            name='big_cvar_t_selected')
+
+        y_target = y * tf.stop_gradient(big_dist_target)
+
+        cvar_loss = negative_indicator * (y_target * big_cvar_t_selected)
+
+        cvar_error = tf.reduce_mean(tf.square(cvar_loss))
 
         # -------------------------------------------------------------------------------
 
@@ -332,10 +365,11 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
 
         # =====================================================================================
 
-        # update_target_fn will be called periodically to copy Q network to target Q network
+        # update_target_fn will be called periodically to copy cvar network to target cvar network
+        # Note: var has no target
         update_target_expr = []
         for var, dist_target in zip(sorted(var_func_variables, key=lambda v: v.name),
-                                   sorted(target_var_func_variables, key=lambda v: v.name)):
+                                   sorted(target_cvar_func_variables, key=lambda v: v.name)):
             update_target_expr.append(dist_target.assign(var))
         update_target_expr = tf.group(*update_target_expr)
 
