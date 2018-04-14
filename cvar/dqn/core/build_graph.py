@@ -85,6 +85,7 @@ def pick_actions(cvar_values):
     deterministic_actions = tf.argmax(cvar_values, axis=-1, output_type=tf.int32)
     return deterministic_actions
 
+debug_expression = None
 
 def pick_action(cvar_values, alpha, nb_atoms):
     """
@@ -100,14 +101,20 @@ def pick_action(cvar_values, alpha, nb_atoms):
     (?,)
 
     """
+    global debug_expression
 
     ix_f = alpha*nb_atoms - 1
-    ix_int = tf.cast(ix_f, tf.int32)
+    ix_int = tf.cast(tf.floor(ix_f), tf.int32)
     portion = ix_f - tf.cast(ix_int, tf.float32)
+    # special case if alpha=1
+    ix_next = tf.cond(tf.equal(alpha, tf.constant(1, tf.float32)), lambda: ix_int, lambda: ix_int+1, name='ix_next')
+    debug_expression = ix_next
+    cvar_alpha_std = cvar_values[:, :, ix_int] * (1-portion) + cvar_values[:, :, ix_next] * portion
 
-    ix_next = tf.cond(tf.equal(alpha, tf.constant(1, tf.float32)), lambda: ix_int, lambda: ix_int+1)
+    # if alpha is before first atom
+    cvar_alpha_zero = cvar_values[:, :, ix_next] * portion
 
-    cvar_alpha = cvar_values[:, :, ix_int] * (1-portion) + cvar_values[:, :, ix_next] * portion
+    cvar_alpha = tf.cond(tf.less(alpha, 1/nb_atoms), lambda: cvar_alpha_std, lambda: cvar_alpha_zero)
 
     return tf.argmax(cvar_alpha, axis=-1, output_type=tf.int32)
 
@@ -170,6 +177,10 @@ def build_act(make_obs_ph, cvar_func, num_actions, nb_atoms, scope="cvar_dqn", r
                          outputs=output_actions,
                          givens={update_eps_ph: -1.0, stochastic_ph: True},
                          updates=[update_eps_expr])
+
+        global debug_expression
+        debug_expression = U.function([alpha_ph], debug_expression)
+
         return act
 
 

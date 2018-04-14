@@ -27,7 +27,7 @@ def main():
         print_freq=10,
         callback=callback,
         batch_size=32,
-        dist_params={'nb_atoms': 10, 'huber_loss': False}
+        dist_params={'nb_atoms': 1, 'huber_loss': False}
     )
     print("Saving model to cartpole_model.pkl")
     act.save("models/cartpole_model.pkl")
