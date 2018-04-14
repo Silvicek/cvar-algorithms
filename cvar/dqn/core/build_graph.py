@@ -283,11 +283,12 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         # construct a new cvar with different actions for each atom
         # a_star = pick_actions(cvar_tp1)
         # cvar_tp1_star = gather_along_second_axis(cvar_tp1, a_star)
-        # TODO: check
         cvar_tp1_star = tf.reduce_max(cvar_tp1, axis=1)
         cvar_tp1_star.set_shape([None, nb_atoms])
         # construct a distribution from the new cvar
         dist_tp1_star_ = extract_distribution(cvar_tp1_star, nb_atoms)
+        # -- checked
+
         # apply done mask
         dist_tp1_star = tf.einsum('ij,i->ij', dist_tp1_star_, 1. - done_mask_ph)
 
@@ -296,16 +297,16 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         # dist is always non-differentiable
         dist_target = tf.stop_gradient(dist_target)
 
-        # increase dimensions (?, nb_atoms, nb_atoms)
+        # increase dimensions (?, nb_atoms, nb_atoms)  TODO: cast
         big_dist_target = tf.transpose(
             tf.reshape(tf.tile(dist_target, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
                        name='big_dist_target'),
             perm=[0, 2, 1])
         # big_dist_target[0] =
-        #  [[Tth1 Tth1 ... Tth1]
-        #   [Tth2 Tth2 ... Tth2]
+        #  [[Td1 Td1 ... Td1]
+        #   [Td2 Td2 ... Td2]
         #   [...               ]
-        #   [Tthn Tthn ... Tthn]]
+        #   [Tdn Tdn ... Tdn]]
         # -------------------------------------------------------------------------------
 
         # ------------------------------- Build VaR loss --------------------------------
@@ -313,19 +314,18 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
             tf.tile(var_t_selected, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
             name='big_var_t_selected')
         # big_var_t_selected[0] =
-        #  [[th1 th2 ... thn]
-        #   [th1 th2 ... thn]
+        #  [[v1 v2 ... vn]
+        #   [v1 v2 ... vn]
         #   [...            ]
-        #   [th1 th2 ... thn]]
+        #   [v1 v2 ... vn]]
 
-        # var loss
         td_error = big_dist_target - big_var_t_selected
         # td_error[0]=
-        #  [[Tth1-th1 Tth1-th2 ... Tth1-thn]
-        #   [Tth2-th1 Tth2-th2 ... Tth2-thn]
+        #  [[Td1-v1 Td1-v2 ... Td1-vn]
+        #   [Td2-v1 Td2-v2 ... Td2-vn]
         #   [...                           ]
-        #   [Tthn-th1 Tthn-th2 ... Tthn-thn]]
-        # TODO: skip tiling
+        #   [Tdn-v1 Tdn-v2 ... Tdn-vn]]
+
         negative_indicator = tf.cast(td_error < 0, tf.float32)
         y = tf.range(1, nb_atoms + 1, dtype=tf.float32, name='tau') * 1. / nb_atoms
 
@@ -348,14 +348,19 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         # ------------------------------- Build CVaR loss -------------------------------
         # Minimizing the MSE of:
         # 1(V > r + gamma*v_j)*(y*(r + gamma*v_j) - yC_i)
+        # negative indicator        dist_target     cvar_t_selected
+
+        # increase dimensions (?, nb_atoms, nb_atoms)
+        big_yc_target = tf.transpose(
+            tf.reshape(tf.tile(dist_target * y, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
+                       name='big_yc_target'),
+            perm=[0, 2, 1])
 
         big_cvar_t_selected = tf.reshape(
             tf.tile(cvar_t_selected, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
             name='big_cvar_t_selected')
 
-        yc_target = big_dist_target / nb_atoms
-
-        cvar_loss = negative_indicator * (yc_target * big_cvar_t_selected)
+        cvar_loss = negative_indicator * (big_yc_target - big_cvar_t_selected)
 
         cvar_error = tf.reduce_mean(tf.square(cvar_loss))
 
@@ -400,12 +405,14 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         x = tf.constant([[1., 15, 20],
                          [10., 150, 200]])
         my_dist = extract_distribution(x, nb_atoms)
-        # cvar_tp1 = U.function([obs_tp1_input], cvar_tp1)
-        # cvar_tp1_star = U.function([obs_tp1_input], cvar_tp1_star)
-        dist_tp1_star = U.function([obs_tp1_input], my_dist)
+        # c_tp1 = U.function([obs_tp1_input], cvar_tp1)
+        # c_tp1_star = U.function([obs_tp1_input], cvar_tp1_star)
+        # d_tp1_star = U.function([obs_tp1_input], dist_tp1_star_)
+        a = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], big_dist_target)
+        b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], big_yc_target)
         # atoms = U.function([obs_tp1_input], atoms)
 
-        return act_f, train, update_target, [dist_tp1_star]
+        return act_f, train, update_target, [a, b]
 
 
 def gather_along_second_axis(data, indices):

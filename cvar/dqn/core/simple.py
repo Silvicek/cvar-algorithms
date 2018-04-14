@@ -226,8 +226,14 @@ def learn(env,
             update_param_noise_threshold = 0.
 
             # ===== DEBUG =====
+
+            # s = np.ones_like(np.array(obs)[None])
+            # a = np.ones_like(act(np.array(obs)[None], run_alpha, update_eps=update_eps))
+            # r = np.array([0])
+            # s_ = np.ones_like(np.array(obs)[None])
+            # d = np.array([False])
             # for f in debug:
-            #     print(f, f(np.ones_like(np.array(obs)[None])))
+            #     print(f(s, a, r, s_, d))
             # print('-------------')
             # =================
 

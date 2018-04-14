@@ -18,7 +18,7 @@ def main():
         env,
         var_func,
         cvar_func,
-        run_alpha=0.75,
+        run_alpha=0.5,
         lr=1e-3,
         max_timesteps=100000,
         buffer_size=50000,
