@@ -226,12 +226,9 @@ def learn(env,
             update_param_noise_threshold = 0.
 
             # ===== DEBUG =====
-            # from .build_graph import debug_expression
-            # print(debug_expression(0.5))
-            # print(debug['quant_values'](np.ones_like(np.array(obs)[None])))
-            # print(debug['quant_values'](np.array(obs)[None]))
-            # print(np.array(obs)[None])
-            # quit()
+            # for f in debug:
+            #     print(f, f(np.ones_like(np.array(obs)[None])))
+            # print('-------------')
             # =================
 
             action = act(np.array(obs)[None], run_alpha, update_eps=update_eps)[0]
