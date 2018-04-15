@@ -225,6 +225,10 @@ def learn(env,
             update_eps = exploration.value(t)
             update_param_noise_threshold = 0.
 
+            action = act(np.array(obs)[None], run_alpha, update_eps=update_eps)[0]
+            reset = False
+            new_obs, rew, done, _ = env.step(action)
+
             # ===== DEBUG =====
 
             # s = np.ones_like(np.array(obs)[None])
@@ -232,14 +236,16 @@ def learn(env,
             # r = np.array([0])
             # s_ = np.ones_like(np.array(obs)[None])
             # d = np.array([False])
-            # for f in debug:
-            #     print(f(s, a, r, s_, d))
-            # print('-------------')
+            s = obs[None]
+            a = np.array([action])
+            r = np.array([rew])
+            s_ = new_obs[None]
+            d = np.array([done])
+            if t % 100 == 0:
+                for f in debug:
+                    print(f(s, a, r, s_, d))
+                print('-------------')
             # =================
-
-            action = act(np.array(obs)[None], run_alpha, update_eps=update_eps)[0]
-            reset = False
-            new_obs, rew, done, _ = env.step(action)
 
             # Store transition in the replay buffer.
             replay_buffer.add(obs, action, rew, new_obs, float(done))

@@ -327,21 +327,11 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         #   [Tdn-v1 Tdn-v2 ... Tdn-vn]]
 
         negative_indicator = tf.cast(td_error < 0, tf.float32)
-        y = tf.range(1, nb_atoms + 1, dtype=tf.float32, name='tau') * 1. / nb_atoms
+        y = tf.range(1, nb_atoms + 1, dtype=tf.float32, name='y') * 1. / nb_atoms
 
-        if dist_params['huber_loss']:
-            huber_loss = U.huber_loss(td_error)
-            var_weights = tf.abs(y - negative_indicator)
-            quantile_loss = var_weights * huber_loss
-        else:
-            var_weights = y - negative_indicator
-            quantile_loss = var_weights * td_error
+        var_weights = y - negative_indicator
+        quantile_loss = var_weights * td_error
 
-        # # elaborate:
-        # var_error = tf.reduce_mean(quantile_loss, axis=-2)  # E_j
-        # var_error = tf.reduce_sum(error, axis=-1)  # atoms
-        # var_error = tf.reduce_mean(error)  # batch
-        # # simple:
         var_error = tf.reduce_mean(quantile_loss)
         # -------------------------------------------------------------------------------
 
@@ -371,7 +361,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         if grad_norm_clipping is not None:
             raise NotImplementedError('huber loss == norm clipping')
         else:
-            optimize_expr = optimizer.minimize(error, var_list=var_func_variables)
+            optimize_expr = optimizer.minimize(error, var_list=[var_func_variables, cvar_func_variables])
 
         # =====================================================================================
 
@@ -409,10 +399,11 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         # c_tp1_star = U.function([obs_tp1_input], cvar_tp1_star)
         # d_tp1_star = U.function([obs_tp1_input], dist_tp1_star_)
         a = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], big_dist_target)
-        b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], big_yc_target)
+        b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], big_var_t_selected)
+        c = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], negative_indicator)
         # atoms = U.function([obs_tp1_input], atoms)
 
-        return act_f, train, update_target, [a, b]
+        return act_f, train, update_target, [a, b, c]
 
 
 def gather_along_second_axis(data, indices):
