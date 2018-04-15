@@ -43,8 +43,9 @@ def mlp(hiddens, layer_norm=False):
         out = _mlp(hiddens, inpt, num_actions, nb_atoms, scope, reuse, layer_norm)
         with tf.variable_scope(scope, reuse=reuse):
             with tf.variable_scope(name, reuse=reuse):
-                out_var = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name=name+'_out')
-        return out_var
+                out = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name=name+'_out')
+        print(out)
+        return out
 
     var_func = lambda *args, **kwargs: last_layer('var', hiddens, layer_norm=layer_norm, *args, **kwargs)
     cvar_func = lambda *args, **kwargs: last_layer('cvar', hiddens, layer_norm=layer_norm, *args, **kwargs)

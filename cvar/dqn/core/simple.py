@@ -54,8 +54,8 @@ class ActWrapper(object):
         with open(path, "wb") as f:
             dill.dump((model_data, self._act_params), f)
 
-    def get_dist_params(self):
-        return self._act_params['dist_params']
+    def get_nb_atoms(self):
+        return self._act_params['nb_atoms']
 
 
 def load(path, num_cpu=16):
@@ -190,10 +190,9 @@ def learn(env,
 
     act_params = {
         'make_obs_ph': make_obs_ph,
-        'var_func': var_func,
         'cvar_func': cvar_func,
         'num_actions': env.action_space.n,
-        'dist_params': dist_params
+        'nb_atoms': dist_params['nb_atoms']
     }
 
     # Create the replay buffer
@@ -244,6 +243,9 @@ def learn(env,
             if t % 100 == 0:
                 for f in debug:
                     print(f(s, a, r, s_, d))
+
+                # print([sess.run(v) for v in tf.global_variables('cvar_dqn/cvar_func')])
+                # print([sess.run(v) for v in tf.global_variables('cvar_dqn/var_func')])
                 print('-------------')
             # =================
 

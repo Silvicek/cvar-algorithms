@@ -5,8 +5,7 @@ import tensorflow as tf
 
 class PlotMachine:
 
-    def __init__(self, dist_params, nb_actions, action_set=None):
-        nb_atoms = dist_params['nb_atoms']
+    def __init__(self, nb_atoms, nb_actions, action_set=None):
         tau = np.arange(0, nb_atoms + 1) / nb_atoms
 
         # extend tau with [0, tau, 1]
@@ -25,10 +24,11 @@ class PlotMachine:
             plt.legend(action_set, loc='upper left')
 
         self.sess = tf.get_default_session()
-        self.act = tf.get_default_graph().get_tensor_by_name("distdeepq/q_func/quantiles:0")
+        self.act = tf.get_default_graph().get_tensor_by_name("cvar_dqn/cvar_func_1/cvar/cvar_out:0")
 
     def plot_distribution(self, obs):
-        quant_out = self.sess.run(self.act, {"distdeepq/observation:0": obs})[0]
+        # TODO: var/cvar
+        quant_out = self.sess.run(self.act, {"cvar_dqn/observation:0": obs})[0]
 
         if self.limits is None:
             self.limits = [np.min(quant_out), np.max(quant_out)]
