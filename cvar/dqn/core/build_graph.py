@@ -113,7 +113,7 @@ def pick_action(cvar_values, alpha, nb_atoms):
     # if alpha is before first atom
     cvar_alpha_zero = cvar_values[:, :, ix_next] * portion
 
-    cvar_alpha = tf.cond(tf.less(alpha, 1/nb_atoms), lambda: cvar_alpha_std, lambda: cvar_alpha_zero)
+    cvar_alpha = tf.cond(tf.less(alpha, 1/nb_atoms), lambda: cvar_alpha_zero, lambda: cvar_alpha_std)
 
     return tf.argmax(cvar_alpha, axis=-1, output_type=tf.int32)
 
@@ -292,7 +292,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         dist_tp1_star = tf.einsum('ij,i->ij', dist_tp1_star_, 1. - done_mask_ph)
 
         # Tth = r + gamma * th
-        dist_target = tf.identity(rew_t_ph[:, tf.newaxis] + gamma * dist_tp1_star, name='dist_target')
+        dist_target = tf.identity(rew_t_ph[:, None] + gamma * dist_tp1_star, name='dist_target')
         # dist is always non-differentiable
         dist_target = tf.stop_gradient(dist_target)
 
@@ -340,16 +340,19 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         # negative indicator        dist_target     cvar_t_selected
 
         # increase dimensions (?, nb_atoms, nb_atoms)
-        big_yc_target = tf.transpose(
-            tf.reshape(tf.tile(dist_target * y, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
-                       name='big_yc_target'),
-            perm=[0, 2, 1])
+        # big_yc_target = tf.transpose(
+        #     tf.reshape(tf.tile(dist_target * y, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
+        #                name='big_yc_target'),
+        #     perm=[0, 2, 1])
 
         big_cvar_t_selected = tf.reshape(
-            tf.tile(cvar_t_selected, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
+            tf.tile(cvar_t_selected/y, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
             name='big_cvar_t_selected')
 
-        cvar_loss = negative_indicator * (big_yc_target - big_cvar_t_selected)
+        cvar_loss = negative_indicator * (big_dist_target - big_cvar_t_selected)
+        # cvar_only = tf.stop_gradient(rew_t_ph[:, None] + gamma * cvar_tp1_star)
+        # cvar_only = tf.einsum('ij,i->ij', cvar_only, 1. - done_mask_ph)
+        # cvar_loss = cvar_only - cvar_t_selected  # standard VI
 
         cvar_error = tf.reduce_mean(tf.square(cvar_loss))
 
@@ -371,9 +374,9 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         # update_target_fn will be called periodically to copy cvar network to target cvar network
         # Note: var has no target
         update_target_expr = []
-        for var, dist_target in zip(sorted(cvar_func_variables, key=lambda v: v.name),
+        for cvar_variable, target_cvar_variable in zip(sorted(cvar_func_variables, key=lambda v: v.name),
                                     sorted(target_cvar_func_variables, key=lambda v: v.name)):
-            update_target_expr.append(dist_target.assign(var))
+            update_target_expr.append(target_cvar_variable.assign(cvar_variable))
         update_target_expr = tf.group(*update_target_expr)
 
         # Create callable functions
@@ -401,15 +404,17 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, optimizer, grad_n
         # c_tp1 = U.function([obs_tp1_input], cvar_tp1)
         # c_tp1_star = U.function([obs_tp1_input], cvar_tp1_star)
         # d_tp1_star = U.function([obs_tp1_input], dist_tp1_star_)
-        # a = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], big_dist_target)
-        b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], var_t_selected)
+        a = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], cvar_t)
+        b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], pick_action(cvar_t, 1., nb_atoms))
+        # c = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], big_dist_target*y)
+        # b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], var_t)
         # c = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], negative_indicator)
         # d = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], big_yc_target)
-        e = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], cvar_t_selected)
+        # e = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], cvar_t)
         # f = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], cvar_loss)
         # atoms = U.function([obs_tp1_input], atoms)
 
-        return act_f, train, update_target, [b, e]
+        return act_f, train, update_target, [a, b]
         # return act_f, train, update_target, [a, b, c, d, e, f]
 
 

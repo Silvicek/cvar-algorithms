@@ -240,13 +240,14 @@ def learn(env,
             r = np.array([rew])
             s_ = new_obs[None]
             d = np.array([done])
-            if t % 100 == 0:
-                for f in debug:
-                    print(f(s, a, r, s_, d))
+            # if t % 100 == 0:
+            #     for f in debug:
+            #         print(f(s, a, r, s_, d))
+            #     print('-------------')
+            #
+            #     # print([sess.run(v) for v in tf.global_variables('cvar_dqn/cvar_func')])
+            #     # print([sess.run(v) for v in tf.global_variables('cvar_dqn/var_func')])
 
-                # print([sess.run(v) for v in tf.global_variables('cvar_dqn/cvar_func')])
-                # print([sess.run(v) for v in tf.global_variables('cvar_dqn/var_func')])
-                print('-------------')
             # =================
 
             # Store transition in the replay buffer.

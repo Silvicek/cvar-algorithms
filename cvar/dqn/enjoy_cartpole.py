@@ -8,7 +8,7 @@ def main():
     act = dqn_core.load("models/cartpole_model.pkl")
     action_set = dqn_core.actions_from_env(env)
     plot_machine = dqn_core.PlotMachine(act.get_nb_atoms(), env.action_space.n, action_set)
-    alpha = 0.5
+    alpha = 1.0
     while True:
         obs, done = env.reset(), False
         episode_rew = 0
