@@ -298,29 +298,11 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         # dist is always non-differentiable
         dist_target = tf.stop_gradient(dist_target)
 
-        # increase dimensions (?, nb_atoms, nb_atoms)  TODO: cast
-        big_dist_target = tf.transpose(
-            tf.reshape(tf.tile(dist_target, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
-                       name='big_dist_target'),
-            perm=[0, 2, 1])
-        # big_dist_target[0] =
-        #  [[Td1 Td1 ... Td1]
-        #   [Td2 Td2 ... Td2]
-        #   [...            ]
-        #   [Tdn Tdn ... Tdn]]
         # -------------------------------------------------------------------------------
 
-        # ------------------------------- Build VaR loss --------------------------------
-        big_var_t_selected = tf.reshape(
-            tf.tile(var_t_selected, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
-            name='big_var_t_selected')
-        # big_var_t_selected[0] =
-        #  [[v1 v2 ... vn]
-        #   [v1 v2 ... vn]
-        #   [...         ]
-        #   [v1 v2 ... vn]]
+        # ---------------------------------- VaR loss -----------------------------------
 
-        td_error = big_dist_target - big_var_t_selected
+        td_error = dist_target[:, :, None] - var_t_selected[:, None, :]
         # td_error[0]=
         #  [[Td1-v1 Td1-v2 ... Td1-vn]
         #   [Td2-v1 Td2-v2 ... Td2-vn]
@@ -336,16 +318,12 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         var_error = tf.reduce_mean(quantile_loss)
         # -------------------------------------------------------------------------------
 
-        # ------------------------------- Build CVaR loss -------------------------------
+        # ---------------------------------- CVaR loss ----------------------------------
         # Minimizing the MSE of:
         # 1(V > r + gamma*v_j)*(y*(r + gamma*v_j) - yC_i)
         #  negative indicator       dist_target     cvar_t_selected
 
-        big_cvar_t_selected = tf.reshape(
-            tf.tile(cvar_t_selected/y, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
-            name='big_cvar_t_selected')
-
-        cvar_loss = negative_indicator * (big_dist_target - big_cvar_t_selected)
+        cvar_loss = negative_indicator * (dist_target[:, :, None] - cvar_t_selected[:, None, :])
 
         cvar_error = tf.reduce_mean(tf.square(cvar_loss))
 
