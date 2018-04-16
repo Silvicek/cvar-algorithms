@@ -11,6 +11,7 @@ from baselines import logger
 from baselines.common.schedules import LinearSchedule
 from .replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from .build_graph import build_act, build_train
+from cvar.common.util import timed
 
 
 class ActWrapper(object):
@@ -89,10 +90,12 @@ def make_session(num_cpu):
     return tf.Session(config=tf_config)
 
 
+@timed
 def learn(env,
           var_func,
           cvar_func,
           run_alpha,
+          nb_atoms,
           lr=5e-4,
           max_timesteps=100000,
           buffer_size=50000,
@@ -107,7 +110,6 @@ def learn(env,
           target_network_update_freq=500,
           num_cpu=4,
           callback=None,
-          dist_params=None
           ):
     """Train a CVaR DQN model.
 
@@ -175,9 +177,6 @@ def learn(env,
     def make_obs_ph(name):
         return U.BatchInput(env.observation_space.shape, name=name)
 
-    if dist_params is None:
-        raise ValueError('dist_params is required')
-
     act, train, update_target, debug = build_train(
         make_obs_ph=make_obs_ph,
         var_func=var_func,
@@ -185,14 +184,15 @@ def learn(env,
         num_actions=env.action_space.n,
         optimizer=tf.train.AdamOptimizer(learning_rate=lr),
         gamma=gamma,
-        dist_params=dist_params
+        nb_atoms=nb_atoms
     )
 
     act_params = {
         'make_obs_ph': make_obs_ph,
         'cvar_func': cvar_func,
+        'var_func': var_func,
         'num_actions': env.action_space.n,
-        'nb_atoms': dist_params['nb_atoms']
+        'nb_atoms': nb_atoms
     }
 
     # Create the replay buffer
