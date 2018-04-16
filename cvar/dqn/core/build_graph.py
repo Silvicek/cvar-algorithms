@@ -161,10 +161,10 @@ def build_act(make_obs_ph, cvar_func, var_func, num_actions, nb_atoms, scope="cv
         # eps in epsilon-greedy
         eps = tf.get_variable("eps", (), initializer=tf.constant_initializer(0))
 
-        # var only for plotting
-        var_values = var_func(observations_ph.get(), num_actions, nb_atoms, scope="var_func", reuse=tf.AUTO_REUSE)
+        cvar_values = cvar_func(observations_ph.get(), num_actions, nb_atoms, scope="out_func")
+        # keep here for plotting
+        var_values = var_func(observations_ph.get(), num_actions, nb_atoms, scope="out_func", reuse=tf.AUTO_REUSE)
 
-        cvar_values = cvar_func(observations_ph.get(), num_actions, nb_atoms, scope="cvar_func")
         deterministic_actions = pick_action(cvar_values, alpha_ph.get(), nb_atoms)
 
         batch_size = tf.shape(observations_ph.get())[0]
@@ -259,17 +259,14 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
 
         # ------------------------------- Core networks ---------------------------------
         # var network
-        # var_t = var_func(obs_t_input.get(), num_actions, nb_atoms, scope="var_func", reuse=tf.AUTO_REUSE)
-        var_t = var_func(obs_t_input.get(), num_actions, nb_atoms, scope="var_func", reuse=True)
-        var_func_variables = U.scope_vars(U.absolute_scope_name("var_func"))
+        var_t = var_func(obs_t_input.get(), num_actions, nb_atoms, scope="out_func", reuse=True)
 
         # vars for actions which we know were selected in the given state.
         var_t_selected = gather_along_second_axis(var_t, act_t_ph)
         var_t_selected.set_shape([None, nb_atoms])
 
         # cvar network
-        cvar_t = cvar_func(obs_t_input.get(), num_actions, nb_atoms, scope="cvar_func", reuse=True)  # reuse from act
-        cvar_func_variables = U.scope_vars(U.absolute_scope_name("cvar_func"))
+        cvar_t = cvar_func(obs_t_input.get(), num_actions, nb_atoms, scope="out_func", reuse=True)  # reuse from act
 
         # cvars for actions which we know were selected in the given state.
         cvar_t_selected = gather_along_second_axis(cvar_t, act_t_ph)
@@ -277,7 +274,13 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
 
         # target cvar network
         cvar_tp1 = cvar_func(obs_tp1_input.get(), num_actions, nb_atoms, scope="target_cvar_func")
+
+        # extract variables
+        joint_variables = U.scope_vars(U.absolute_scope_name("out_func/net"))
+        var_variables = U.scope_vars(U.absolute_scope_name("out_func/var"))
+        cvar_variables = U.scope_vars(U.absolute_scope_name("out_func/cvar"))
         target_cvar_func_variables = U.scope_vars(U.absolute_scope_name("target_cvar_func"))
+
         # -------------------------------------------------------------------------------
 
         # ----------------------------- Extract distribution ----------------------------
@@ -286,12 +289,11 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         cvar_tp1_star.set_shape([None, nb_atoms])
         # construct a distribution from the new cvar
         dist_tp1_star_ = extract_distribution(cvar_tp1_star, nb_atoms)
-        # -- checked
 
         # apply done mask
         dist_tp1_star = tf.einsum('ij,i->ij', dist_tp1_star_, 1. - done_mask_ph)
 
-        # Tth = r + gamma * th
+        # Td = r + gamma * dist
         dist_target = tf.identity(rew_t_ph[:, None] + gamma * dist_tp1_star, name='dist_target')
         # dist is always non-differentiable
         dist_target = tf.stop_gradient(dist_target)
@@ -304,7 +306,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         # big_dist_target[0] =
         #  [[Td1 Td1 ... Td1]
         #   [Td2 Td2 ... Td2]
-        #   [...               ]
+        #   [...            ]
         #   [Tdn Tdn ... Tdn]]
         # -------------------------------------------------------------------------------
 
@@ -315,14 +317,14 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         # big_var_t_selected[0] =
         #  [[v1 v2 ... vn]
         #   [v1 v2 ... vn]
-        #   [...            ]
+        #   [...         ]
         #   [v1 v2 ... vn]]
 
         td_error = big_dist_target - big_var_t_selected
         # td_error[0]=
         #  [[Td1-v1 Td1-v2 ... Td1-vn]
         #   [Td2-v1 Td2-v2 ... Td2-vn]
-        #   [...                           ]
+        #   [...                     ]
         #   [Tdn-v1 Tdn-v2 ... Tdn-vn]]
 
         negative_indicator = tf.cast(td_error < 0, tf.float32)
@@ -337,7 +339,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         # ------------------------------- Build CVaR loss -------------------------------
         # Minimizing the MSE of:
         # 1(V > r + gamma*v_j)*(y*(r + gamma*v_j) - yC_i)
-        # negative indicator        dist_target     cvar_t_selected
+        #  negative indicator       dist_target     cvar_t_selected
 
         big_cvar_t_selected = tf.reshape(
             tf.tile(cvar_t_selected/y, [1, nb_atoms]), [batch_dim, nb_atoms, nb_atoms],
@@ -356,12 +358,12 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         if grad_norm_clipping is not None:
             raise NotImplementedError('huber loss == norm clipping')
         else:
-            optimize_expr = optimizer.minimize(error, var_list=[var_func_variables, cvar_func_variables])
+            optimize_expr = optimizer.minimize(error, var_list=[joint_variables, var_variables, cvar_variables])
 
         # update_target_fn will be called periodically to copy cvar network to target cvar network
         # Note: var has no target
         update_target_expr = []
-        for cvar_variable, target_cvar_variable in zip(sorted(cvar_func_variables, key=lambda v: v.name),
+        for cvar_variable, target_cvar_variable in zip(sorted(joint_variables+cvar_variables, key=lambda v: v.name),
                                                        sorted(target_cvar_func_variables, key=lambda v: v.name)):
             update_target_expr.append(target_cvar_variable.assign(cvar_variable))
         update_target_expr = tf.group(*update_target_expr)
@@ -384,8 +386,8 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         # -------------------------------------------------------------------------------
 
         # --------------------------------- Debug ---------------------------------------
-        a = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], cvar_t)
-        b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], pick_action(cvar_t, 1., nb_atoms))
+        a = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], var_t_selected)
+        b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], cvar_t_selected)
         # c = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], big_dist_target*y)
         # b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], var_t)
         # c = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], negative_indicator)

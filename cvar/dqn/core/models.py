@@ -4,12 +4,12 @@ import tensorflow.contrib.layers as layers
 
 def atari_model():
     model = cnn_to_mlp(
-            convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
-            hiddens=[512])
+        convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
+        hiddens=[512])
     return model
 
 
-def _mlp(hiddens, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=False):
+def _mlp(hiddens, inpt, scope, reuse, layer_norm):
     with tf.variable_scope(scope, reuse=reuse):
         out = inpt
         for hidden in hiddens:
@@ -17,9 +17,6 @@ def _mlp(hiddens, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=Fa
             if layer_norm:
                 out = layers.layer_norm(out, center=True, scale=True)
             out = tf.nn.relu(out)
-
-        out = layers.fully_connected(out, num_outputs=num_actions * nb_atoms, activation_fn=None)
-
 
     return out
 
@@ -39,19 +36,18 @@ def mlp(hiddens, layer_norm=False):
     cvar_func: function
         representing the yCVaRy of the CVaR DQN algorithm
     """
+
     def last_layer(name, hiddens, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=False):
-        out = _mlp(hiddens, inpt, num_actions, nb_atoms, scope, reuse, layer_norm)
-        with tf.variable_scope(scope, reuse=reuse):
-            with tf.variable_scope(name, reuse=reuse):
-                out = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name=name+'_out')
-        print(out)
+        out = _mlp(hiddens, inpt, scope + '/net', reuse, layer_norm)
+        with tf.variable_scope('{}/{}_out'.format(scope, name), reuse=reuse):
+            out = layers.fully_connected(out, num_outputs=num_actions * nb_atoms, activation_fn=None)
+            out = tf.reshape(out, shape=[-1, num_actions, nb_atoms])
         return out
 
     var_func = lambda *args, **kwargs: last_layer('var', hiddens, layer_norm=layer_norm, *args, **kwargs)
     cvar_func = lambda *args, **kwargs: last_layer('cvar', hiddens, layer_norm=layer_norm, *args, **kwargs)
 
     return var_func, cvar_func
-
 
 
 def _cnn_to_mlp(convs, hiddens, dueling, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=False):
@@ -102,4 +98,3 @@ def cnn_to_mlp(convs, hiddens, dueling=False, layer_norm=False):
     """
 
     return lambda *args, **kwargs: _cnn_to_mlp(convs, hiddens, dueling, layer_norm=layer_norm, *args, **kwargs)
-
