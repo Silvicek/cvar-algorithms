@@ -186,7 +186,6 @@ def extract_distribution(y_cvar, nb_atoms):
     """ Convert yC -> underlying distribution.
         y_cvar: (?, nb_atoms)
     """
-    # TODO: casting is more efficient?
 
     dist_cropped = y_cvar[:, 1:] - y_cvar[:, :-1]
     dist = tf.concat((y_cvar[:, 0, None], dist_cropped), axis=1) * nb_atoms
@@ -320,10 +319,10 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
 
         # ---------------------------------- CVaR loss ----------------------------------
         # Minimizing the MSE of:
-        # 1(V > r + gamma*v_j)*(y*(r + gamma*v_j) - yC_i)
-        #  negative indicator       dist_target     cvar_t_selected
+        # 1(V > r + gamma*v_j)*(r + gamma*v_j) - C_i)
+        #  negative indicator       dist_target  cvar_t_selected/y
 
-        cvar_loss = negative_indicator * (dist_target[:, :, None] - cvar_t_selected[:, None, :])
+        cvar_loss = negative_indicator * (dist_target[:, :, None] - (cvar_t_selected/y)[:, None, :])
 
         cvar_error = tf.reduce_mean(tf.square(cvar_loss))
 
