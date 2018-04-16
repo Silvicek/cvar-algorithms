@@ -23,8 +23,8 @@ class PlotMachine:
             plt.legend(action_set, loc='upper left')
 
         self.sess = tf.get_default_session()
-        self.act_cvar = tf.get_default_graph().get_tensor_by_name("cvar_dqn/cvar_func_1/cvar/cvar_out:0")
-        self.act_var = tf.get_default_graph().get_tensor_by_name("cvar_dqn/var_func_1/var/var_out:0")
+        self.act_cvar = tf.get_default_graph().get_tensor_by_name("cvar_dqn/out_func/cvar/out:0")
+        self.act_var = tf.get_default_graph().get_tensor_by_name("cvar_dqn/out_func/var/out:0")
 
     def plot_distribution(self, obs):
         # TODO: var/cvar
