@@ -34,7 +34,7 @@ def mlp(hiddens, layer_norm=False):
     var_func: function
         representing the VaR of the CVaR DQN algorithm
     cvar_func: function
-        representing the yCVaRy of the CVaR DQN algorithm
+        representing the CVaRy of the CVaR DQN algorithm
     """
 
     def last_layer(name, hiddens, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=False):
@@ -50,7 +50,7 @@ def mlp(hiddens, layer_norm=False):
     return var_func, cvar_func
 
 
-def _cnn_to_mlp(convs, hiddens, dueling, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=False):
+def _cnn_to_mlp(convs, hiddens, inpt, scope, reuse=False, layer_norm=False):
     with tf.variable_scope(scope, reuse=reuse):
         out = inpt
         with tf.variable_scope("convnet"):
@@ -67,17 +67,12 @@ def _cnn_to_mlp(convs, hiddens, dueling, inpt, num_actions, nb_atoms, scope, reu
                 action_out = layers.fully_connected(action_out, num_outputs=hidden, activation_fn=None)
                 if layer_norm:
                     action_out = layers.layer_norm(action_out, center=True, scale=True)
-                action_out = tf.nn.relu(action_out)
-            action_scores = layers.fully_connected(action_out, num_outputs=num_actions * nb_atoms, activation_fn=None)
+                out = tf.nn.relu(action_out)
 
-        if dueling:
-            raise ValueError('Dueling not supported')
-        else:
-            out = tf.reshape(action_scores, shape=[-1, num_actions, nb_atoms], name='quantiles')
         return out
 
 
-def cnn_to_mlp(convs, hiddens, dueling=False, layer_norm=False):
+def cnn_to_mlp(convs, hiddens, layer_norm=False):
     """This model takes as input an observation and returns values of all actions.
 
     Parameters
@@ -87,14 +82,23 @@ def cnn_to_mlp(convs, hiddens, dueling=False, layer_norm=False):
         (num_outputs, kernel_size, stride)
     hiddens: [int]
         list of sizes of hidden layers
-    dueling: bool
-        if true double the output MLP to compute a baseline
-        for action scores
 
     Returns
     -------
-    q_func: function
-        q_function for DQN algorithm.
+    var_func: function
+        representing the VaR of the CVaR DQN algorithm
+    cvar_func: function
+        representing the CVaRy of the CVaR DQN algorithm
     """
 
-    return lambda *args, **kwargs: _cnn_to_mlp(convs, hiddens, dueling, layer_norm=layer_norm, *args, **kwargs)
+    def last_layer(name, convs, hiddens, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=False):
+        out = _cnn_to_mlp(convs, hiddens, inpt, scope + '/net', reuse, layer_norm)
+        with tf.variable_scope('{}/{}'.format(scope, name), reuse=reuse):
+            out = layers.fully_connected(out, num_outputs=num_actions * nb_atoms, activation_fn=None)
+            out = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name='out')
+        return out
+
+    var_func = lambda *args, **kwargs: last_layer('var', convs, hiddens, layer_norm=layer_norm, *args, **kwargs)
+    cvar_func = lambda *args, **kwargs: last_layer('cvar', convs, hiddens, layer_norm=layer_norm, *args, **kwargs)
+
+    return var_func, cvar_func

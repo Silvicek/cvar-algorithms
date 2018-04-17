@@ -41,9 +41,9 @@ def parse_args():
     # Bells and whistles
     boolean_flag(parser, "layer-norm", default=False, help="whether or not to use layer norm (should be True if param_noise is used)")
     boolean_flag(parser, "gym-monitor", default=False, help="whether or not to use a OpenAI Gym monitor (results in slower training due to video recording)")
-    # Distributional Perspective
-    boolean_flag(parser, "huber-loss", default=True, help="whether or not to use quantile huber loss")
-    parser.add_argument("--nb-atoms", type=int, default=100, help="number of quantile atoms")
+    # CVaR
+    parser.add_argument("--nb-atoms", type=int, default=10, help="number of cvar and quantile atoms (linearly spaced)")
+    parser.add_argument("--run-alpha", type=float, default=1., help="alpha for policy used during training")
     # Checkpointing
     parser.add_argument("--save-dir", type=str, default=None, help="directory in which training state and model should be saved.")
     parser.add_argument("--save-azure-container", type=str, default=None,
@@ -126,15 +126,16 @@ if __name__ == '__main__':
             json.dump(vars(args), f)
 
     with dqn_core.make_session(4) as sess:
+        var_func, cvar_func = dqn_core.models.atari_model()
         # Create training graph and replay buffer
         act, train, update_target, debug = dqn_core.build_train(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
-            quant_func=dqn_core.models.atari_model(),
+            var_func=var_func,
+            cvar_func=cvar_func,
             num_actions=env.action_space.n,
             optimizer=tf.train.AdamOptimizer(learning_rate=args.lr, epsilon=0.01/args.batch_size),
             gamma=0.99,
-            dist_params={'huber_loss': args.huber_loss,
-                         'nb_atoms': args.nb_atoms}
+            nb_atoms=args.nb_atoms
         )
 
         approximate_num_iters = args.num_steps / 4
@@ -144,11 +145,7 @@ if __name__ == '__main__':
             (approximate_num_iters / 5, 0.01)
         ], outside_value=0.01)
 
-        if args.prioritized:
-            replay_buffer = PrioritizedReplayBuffer(args.replay_buffer_size, args.prioritized_alpha)
-            beta_schedule = LinearSchedule(approximate_num_iters, initial_p=args.prioritized_beta0, final_p=1.0)
-        else:
-            replay_buffer = ReplayBuffer(args.replay_buffer_size)
+        replay_buffer = ReplayBuffer(args.replay_buffer_size)
 
         U.initialize()
         update_target()
@@ -174,25 +171,11 @@ if __name__ == '__main__':
 
             # Take action and store transition in the replay buffer.
             kwargs = {}
-            if not args.param_noise:
-                update_eps = exploration.value(num_iters)
-                update_param_noise_threshold = 0.
-            else:
-                if args.param_noise_reset_freq > 0 and num_iters_since_reset > args.param_noise_reset_freq:
-                    # Reset param noise policy since we have exceeded the maximum number of steps without a reset.
-                    reset = True
 
-                update_eps = 0.01  # ensures that we cannot get stuck completely
-                # Compute the threshold such that the KL divergence between perturbed and non-perturbed
-                # policy is comparable to eps-greedy exploration with eps = exploration.value(t).
-                # See Appendix C.1 in Parameter Space Noise for Exploration, Plappert et al., 2017
-                # for detailed explanation.
-                update_param_noise_threshold = -np.log(1. - exploration.value(num_iters) + exploration.value(num_iters) / float(env.action_space.n))
-                kwargs['reset'] = reset
-                kwargs['update_param_noise_threshold'] = update_param_noise_threshold
-                kwargs['update_param_noise_scale'] = (num_iters % args.param_noise_update_freq == 0)
+            update_eps = exploration.value(num_iters)
+            update_param_noise_threshold = 0.
 
-            action = act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
+            action = act(np.array(obs)[None], args.run_alpha, update_eps=update_eps, **kwargs)[0]
             reset = False
             new_obs, rew, done, info = env.step(action)
             replay_buffer.add(obs, action, rew, new_obs, float(done))
@@ -205,18 +188,11 @@ if __name__ == '__main__':
             if (num_iters > max(5 * args.batch_size, args.replay_buffer_size // 200) and
                     num_iters % args.learning_freq == 0):
                 # Sample a bunch of transitions from replay buffer
-                if args.prioritized:
-                    experience = replay_buffer.sample(args.batch_size, beta=beta_schedule.value(num_iters))
-                    (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
-                else:
-                    obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(args.batch_size)
-                    weights = np.ones_like(rewards)
+                obses_t, actions, rewards, obses_tp1, dones = replay_buffer.sample(args.batch_size)
+                weights = np.ones_like(rewards)
                 # Minimize the error in Bellman's equation and compute TD-error
                 td_errors = train(obses_t, actions, rewards, obses_tp1, dones, weights)
-                # Update the priorities in the replay buffer
-                if args.prioritized:
-                    new_priorities = np.abs(td_errors) + args.prioritized_eps
-                    replay_buffer.update_priorities(batch_idxes, new_priorities)
+
             # Update target network.
             if num_iters % args.target_update_freq == 0:
                 update_target()
@@ -247,8 +223,7 @@ if __name__ == '__main__':
                 logger.record_tabular("episodes", len(info["rewards"]))
                 logger.record_tabular("reward (100 epi mean)", np.mean(info["rewards"][-100:]))
                 logger.record_tabular("exploration", exploration.value(num_iters))
-                if args.prioritized:
-                    logger.record_tabular("max priority", replay_buffer._max_priority)
+
                 fps_estimate = (float(steps_per_iter) / (float(iteration_time_est) + 1e-6)
                                 if steps_per_iter._value is not None else "calculating...")
                 logger.dump_tabular()

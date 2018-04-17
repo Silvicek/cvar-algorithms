@@ -22,6 +22,8 @@ def parse_args():
     boolean_flag(parser, "dueling", default=False, help="whether or not to use dueling model")
     boolean_flag(parser, "visual", default=False, help="whether or not to show the distribution output")
 
+    parser.add_argument("--alpha", type=str, default=1.0, help="alpha in CVaR_alpha(x_0)")
+
     return parser.parse_args()
 
 
@@ -37,7 +39,7 @@ def play(env, act, stochastic, video_path):
     while True:
         env.unwrapped.render()
         video_recorder.capture_frame()
-        action = act(np.array(obs)[None], stochastic=stochastic)[0]
+        action = act(np.array(obs)[None], args.alpha, stochastic=stochastic)[0]
         obs, rew, done, info = env.step(action)
         if args.visual:
             plot_machine.plot_distribution(np.array(obs)[None])
@@ -61,14 +63,16 @@ if __name__ == '__main__':
 
         model_parent_path = dqn_core.parent_path(args.model_dir)
         old_args = json.load(open(model_parent_path + '/args.json'))
-
+        # TODO: old args unnecessary? just get nb_atoms from shape
         dist_params = {'Vmin': old_args['vmin'],
                        'Vmax': old_args['vmax'],
                        'nb_atoms': old_args['nb_atoms']}
+        var_func, cvar_func = dqn_core.models.atari_model()
         act = dqn_core.build_act(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
-            p_dist_func=dqn_core.models.atari_model(),
+            var_func=var_func,
+            cvar_func=cvar_func,
             num_actions=env.action_space.n,
-            dist_params=dist_params)
+            nb_atoms=old_args['nb_atoms'])
         U.load_state(os.path.join(args.model_dir, "saved"))
         play(env, act, args.stochastic, args.video)
