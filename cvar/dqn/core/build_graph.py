@@ -253,8 +253,8 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         obs_tp1_input = U.ensure_tf_input(make_obs_ph("obs_tp1"))
         done_mask_ph = tf.placeholder(tf.float32, [None], name="done")
         importance_weights_ph = tf.placeholder(tf.float32, [None], name="weight")
-
-        batch_dim = tf.shape(rew_t_ph)[0]
+        # atoms
+        y = tf.range(1, nb_atoms + 1, dtype=tf.float32, name='y') * 1. / nb_atoms
 
         # ------------------------------- Core networks ---------------------------------
         # var network
@@ -287,7 +287,8 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         cvar_tp1_star = tf.reduce_max(cvar_tp1, axis=1)
         cvar_tp1_star.set_shape([None, nb_atoms])
         # construct a distribution from the new cvar
-        dist_tp1_star_ = extract_distribution(cvar_tp1_star, nb_atoms)
+        ycvar_tp1_star = cvar_tp1_star * y
+        dist_tp1_star_ = extract_distribution(ycvar_tp1_star, nb_atoms)
 
         # apply done mask
         dist_tp1_star = tf.einsum('ij,i->ij', dist_tp1_star_, 1. - done_mask_ph)
@@ -309,7 +310,6 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         #   [Tdn-v1 Tdn-v2 ... Tdn-vn]]
 
         negative_indicator = tf.cast(td_error < 0, tf.float32)
-        y = tf.range(1, nb_atoms + 1, dtype=tf.float32, name='y') * 1. / nb_atoms
 
         var_weights = y - negative_indicator
         quantile_loss = var_weights * td_error
@@ -322,7 +322,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         # 1(V > r + gamma*v_j)*(r + gamma*v_j) - C_i)
         #  negative indicator       dist_target  cvar_t_selected/y
 
-        cvar_loss = negative_indicator * (dist_target[:, :, None] - (cvar_t_selected/y)[:, None, :])
+        cvar_loss = negative_indicator * (dist_target[:, :, None] - cvar_t_selected[:, None, :])
 
         cvar_error = tf.reduce_mean(tf.square(cvar_loss))
 
