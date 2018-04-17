@@ -219,6 +219,8 @@ def learn(env,
         for t in range(max_timesteps):
             if callback is not None:
                 if callback(locals(), globals()):
+                    print('Target reached')
+                    model_saved = False
                     break
             # Take action and update exploration to the newest value
             update_eps = exploration.value(t)

@@ -1,17 +1,6 @@
-import tensorflow as tf
-import numpy as np
 import os
 import gym
-
-
-def build_z(Vmin, Vmax, nb_atoms, numpy=False):
-    dz = (Vmax - Vmin) / (nb_atoms - 1)
-    if numpy:
-        z = np.arange(Vmin, Vmax + dz / 2, dz)
-    else:
-        z = tf.range(Vmin, Vmax + dz / 2, dz, dtype=tf.float32, name='z')  # TODO: reuse?
-
-    return z, dz
+import numpy as np
 
 
 def parent_path(path):
@@ -39,20 +28,36 @@ def actions_from_env(env):
             return [atari_actions[i] for i in actions]
 
 
-def make_env(game_name):
+def make_env(game_name, random_action_eps=0.):
     from baselines.common.atari_wrappers import wrap_deepmind, make_atari
     env = make_atari(game_name + "NoFrameskip-v4")
+    if random_action_eps > 0:
+        env = ActionRandomizer(env, random_action_eps)
     monitored_env = SimpleMonitor(env)
-    # TODO: port to c51
     env = wrap_deepmind(monitored_env, frame_stack=True, scale=True)
     return env, monitored_env
+
+
+class ActionRandomizer(gym.ActionWrapper):
+
+    def __init__(self, env, eps):
+        super().__init__(env)
+        self.eps = eps
+
+    def _action(self, action):
+        if np.random.random() < self.eps:
+            # pick action with uniform probability
+            return self.action_space.sample()
+        else:
+            return action
+
+    def _reverse_action(self, action):
+        pass
 
 
 # hard copy from old baselines.common.misc_util
 # TODO: remove?
 import time
-
-
 class SimpleMonitor(gym.Wrapper):
     def __init__(self, env):
         """Adds two qunatities to info returned by every step:

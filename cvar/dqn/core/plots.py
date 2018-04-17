@@ -27,15 +27,14 @@ class PlotMachine:
         self.act_var = tf.get_default_graph().get_tensor_by_name("cvar_dqn/out_func/var/out:0")
 
     def plot_distribution(self, obs):
-        # TODO: var/cvar
         cvar_out = self.sess.run(self.act_cvar, {"cvar_dqn/observation:0": obs})[0]
         var_out = self.sess.run(self.act_var, {"cvar_dqn/observation:0": obs})[0]
-        dist_out = [yc_to_var(self.atoms, cvar_out[a]) for a in range(len(cvar_out))]
+        dist_out = [yc_to_var(self.atoms, cvar_out[a]*self.atoms[1:]) for a in range(len(cvar_out))]
 
         if self.limits is None:
-            self.limits = [np.min(dist_out), np.max(var_out)]
+            self.limits = [np.min(dist_out), np.max(dist_out)]
         else:
-            self.limits = [min(np.min(dist_out), self.limits[0]), max(np.max(var_out), self.limits[1])]
+            self.limits = [min(np.min(dist_out), self.limits[0]), max(np.max(dist_out), self.limits[1])]
 
         self.ax[0].set_ylim(self.limits)
         self.ax[1].set_ylim(self.limits)
