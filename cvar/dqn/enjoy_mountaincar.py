@@ -1,10 +1,18 @@
 import gym
-
+from gym.envs.registration import register
 import cvar.dqn.core as dqn_core
+from cvar.dqn.core.static import ActionRandomizer
 
 
 def main():
-    env = gym.make("MountainCar-v0")
+    register(
+        id='DeterministicMountainCar-v0',
+        entry_point='cvar.dqn.train_mountaincar:DeterministicMountainCarEnv',
+        max_episode_steps=200,
+        reward_threshold=-110.0,
+    )
+    env = gym.make("DeterministicMountainCar-v0")
+    env = ActionRandomizer(env, eps=0.1)
     act = dqn_core.load("models/mountaincar_model.pkl")
     action_set = dqn_core.actions_from_env(env)
     plot_machine = dqn_core.PlotMachine(act.get_nb_atoms(), env.action_space.n, action_set)
