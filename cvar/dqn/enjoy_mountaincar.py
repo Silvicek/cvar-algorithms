@@ -2,6 +2,7 @@ import gym
 from gym.envs.registration import register
 import cvar.dqn.core as dqn_core
 from cvar.dqn.core.static import ActionRandomizer
+from cvar.common.plots import PlotMachine
 
 
 def main():
@@ -15,7 +16,7 @@ def main():
     env = ActionRandomizer(env, eps=0.1)
     act = dqn_core.load("models/mountaincar_model.pkl")
     action_set = dqn_core.actions_from_env(env)
-    plot_machine = dqn_core.PlotMachine(act.get_nb_atoms(), env.action_space.n, action_set)
+    plot_machine = PlotMachine(act.get_nb_atoms(), env.action_space.n, action_set)
     alpha = 1.0
     while True:
         obs, done = env.reset(), False
