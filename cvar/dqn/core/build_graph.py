@@ -163,7 +163,8 @@ def build_act(make_obs_ph, cvar_func, var_func, num_actions, nb_atoms, scope="cv
 
         cvar_values = cvar_func(observations_ph.get(), num_actions, nb_atoms, scope="out_func")
         # keep here for plotting
-        var_values = var_func(observations_ph.get(), num_actions, nb_atoms, scope="out_func", reuse=tf.AUTO_REUSE)
+        var_values = var_func(observations_ph.get(), num_actions, nb_atoms, scope="out_func",
+                              reuse_main=True, reuse_last=False)
 
         deterministic_actions = pick_action(cvar_values, alpha_ph.get(), nb_atoms)
 
@@ -258,14 +259,16 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
 
         # ------------------------------- Core networks ---------------------------------
         # var network
-        var_t = var_func(obs_t_input.get(), num_actions, nb_atoms, scope="out_func", reuse=True)
+        var_t = var_func(obs_t_input.get(), num_actions, nb_atoms, scope="out_func",
+                         reuse_main=True, reuse_last=True) # reuse from act
 
         # vars for actions which we know were selected in the given state.
         var_t_selected = gather_along_second_axis(var_t, act_t_ph)
         var_t_selected.set_shape([None, nb_atoms])
 
         # cvar network
-        cvar_t = cvar_func(obs_t_input.get(), num_actions, nb_atoms, scope="out_func", reuse=True)  # reuse from act
+        cvar_t = cvar_func(obs_t_input.get(), num_actions, nb_atoms, scope="out_func",
+                           reuse_main=True, reuse_last=True)  # reuse from act
 
         # cvars for actions which we know were selected in the given state.
         cvar_t_selected = gather_along_second_axis(cvar_t, act_t_ph)
