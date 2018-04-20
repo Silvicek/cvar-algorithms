@@ -237,11 +237,11 @@ def learn(env,
             # r = np.array([0])
             # s_ = np.ones_like(np.array(obs)[None])
             # d = np.array([False])
-            s = obs[None]
-            a = np.array([action])
-            r = np.array([rew])
-            s_ = new_obs[None]
-            d = np.array([done])
+            # s = obs[None]
+            # a = np.array([action])
+            # r = np.array([rew])
+            # s_ = new_obs[None]
+            # d = np.array([done])
             # if t % 100 == 0:
             #     for f in debug:
             #         print(f(s, a, r, s_, d))
