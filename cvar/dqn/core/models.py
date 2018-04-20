@@ -92,9 +92,10 @@ def cnn_to_mlp(convs, hiddens, layer_norm=False):
         representing the CVaRy of the CVaR DQN algorithm
     """
 
-    def last_layer(name, convs, hiddens, inpt, num_actions, nb_atoms, scope, reuse=False, layer_norm=False):
-        out = _cnn_to_mlp(convs, hiddens, inpt, scope + '/net', reuse, layer_norm)
-        with tf.variable_scope('{}/{}'.format(scope, name), reuse=reuse):
+    def last_layer(name, convs, hiddens, inpt, num_actions, nb_atoms, scope,
+                   reuse_main=False, reuse_last=False, layer_norm=False):
+        out = _cnn_to_mlp(convs, hiddens, inpt, scope + '/net', reuse_main, layer_norm)
+        with tf.variable_scope('{}/{}'.format(scope, name), reuse=reuse_last):
             out = layers.fully_connected(out, num_outputs=num_actions * nb_atoms, activation_fn=None)
             out = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name='out')
         return out

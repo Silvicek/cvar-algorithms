@@ -9,7 +9,6 @@ def main():
     model = dqn_core.models.cnn_to_mlp(
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
         hiddens=[256],
-        dueling=False
     )
     act = dqn_core.learn(
         env,
@@ -24,7 +23,7 @@ def main():
         target_network_update_freq=1000,
         gamma=0.99,
         batch_size=32,
-        dist_params={'nb_atoms': 10, 'huber_loss': True}
+        nb_atoms=10
     )
     act.save("models/pong_model.pkl")
     env.close()
