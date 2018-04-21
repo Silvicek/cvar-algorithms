@@ -111,7 +111,7 @@ if __name__ == '__main__':
         var_func, cvar_func = dqn_core.models.atari_model()
         # Create training graph and replay buffer
         act, train, update_target, debug = dqn_core.build_train(
-            make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),
+            make_obs_ph=lambda name: U.BatchInput(env.observation_space.shape, name=name),
             var_func=var_func,
             cvar_func=cvar_func,
             num_actions=env.action_space.n,
