@@ -21,9 +21,6 @@ from baselines.common.misc_util import (
     RunningAvg,
 )
 from baselines.common.schedules import LinearSchedule, PiecewiseSchedule
-# when updating this to non-deperecated ones, it is important to
-# copy over LazyFrames
-from baselines.common.azure_utils import Container
 
 
 def parse_args():
@@ -33,7 +30,7 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=42, help="which seed to use")
     # Core DQN parameters
     parser.add_argument("--replay-buffer-size", type=int, default=int(1e6), help="replay buffer size")
-    parser.add_argument("--lr", type=float, default=25e-5, help="learning rate for Adam optimizer")
+    parser.add_argument("--lr", type=float, default=1e-4, help="learning rate for Adam optimizer")
     parser.add_argument("--num-steps", type=int, default=int(4e7), help="total number of steps to run the environment for")
     parser.add_argument("--batch-size", type=int, default=32, help="number of transitions to optimize at the same time")
     parser.add_argument("--learning-freq", type=int, default=4, help="number of iterations between every optimization step")
@@ -46,8 +43,6 @@ def parse_args():
     parser.add_argument("--run-alpha", type=float, default=1., help="alpha for policy used during training")
     # Checkpointing
     parser.add_argument("--save-dir", type=str, default=None, help="directory in which training state and model should be saved.")
-    parser.add_argument("--save-azure-container", type=str, default=None,
-                        help="It present data will saved/loaded from Azure. Should be in format ACCOUNT_NAME:ACCOUNT_KEY:CONTAINER")
     parser.add_argument("--save-freq", type=int, default=1e6, help="save model once every time this many iterations are completed")
     boolean_flag(parser, "load-on-start", default=True, help="if true and model was previously saved then training will be resumed")
     return parser.parse_args()
@@ -79,11 +74,7 @@ def maybe_load_model(savedir, container):
         return
 
     state_path = os.path.join(os.path.join(savedir, 'training_state.pkl.zip'))
-    if container is not None:
-        logger.log("Attempting to download model from Azure")
-        found_model = container.get(savedir, 'training_state.pkl.zip')
-    else:
-        found_model = os.path.exists(state_path)
+    found_model = os.path.exists(state_path)
     if found_model:
         state = pickle_load(state_path, compression=True)
         model_dir = "model-{}".format(state["num_iters"])
@@ -97,19 +88,10 @@ def maybe_load_model(savedir, container):
 if __name__ == '__main__':
     args = parse_args()
 
-    # Parse savedir and azure container.
+    # Parse savedir
     savedir = args.save_dir
     if savedir is None:
         savedir = os.getenv('OPENAI_LOGDIR', None)
-    if args.save_azure_container is not None:
-        account_name, account_key, container_name = args.save_azure_container.split(":")
-        container = Container(account_name=account_name,
-                              account_key=account_key,
-                              container_name=container_name,
-                              maybe_create=True)
-        if savedir is None:
-            # Careful! This will not get cleaned up. Docker spoils the developers.
-            savedir = tempfile.TemporaryDirectory().name
     else:
         container = None
     # Create and seed the env.

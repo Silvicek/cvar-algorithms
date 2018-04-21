@@ -9,6 +9,7 @@ from gym.monitoring import VideoRecorder
 import baselines.common.tf_util as U
 
 import cvar.dqn.core as dqn_core
+from cvar.common.plots import PlotMachine
 from baselines.common.misc_util import boolean_flag
 
 
@@ -35,7 +36,7 @@ def play(env, act, stochastic, video_path):
     obs = env.reset()
     if args.visual:
         action_names = dqn_core.actions_from_env(env)
-        plot_machine = dqn_core.PlotMachine(dist_params, env.action_space.n, action_names)
+        plot_machine = PlotMachine(act.get_nb_atoms(), env.action_space.n, action_names)
     while True:
         env.unwrapped.render()
         video_recorder.capture_frame()
@@ -64,9 +65,7 @@ if __name__ == '__main__':
         model_parent_path = dqn_core.parent_path(args.model_dir)
         old_args = json.load(open(model_parent_path + '/args.json'))
         # TODO: old args unnecessary? just get nb_atoms from shape
-        dist_params = {'Vmin': old_args['vmin'],
-                       'Vmax': old_args['vmax'],
-                       'nb_atoms': old_args['nb_atoms']}
+
         var_func, cvar_func = dqn_core.models.atari_model()
         act = dqn_core.build_act(
             make_obs_ph=lambda name: U.Uint8Input(env.observation_space.shape, name=name),

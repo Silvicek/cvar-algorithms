@@ -8,7 +8,7 @@ def main():
     act = dqn_core.load("models/pong_model.pkl")
     print(act)
     action_set = dqn_core.actions_from_env(env)
-    plot_machine = PlotMachine(act.get_dist_params(), env.action_space.n, action_set)
+    plot_machine = PlotMachine(act.get_nb_atoms(), env.action_space.n, action_set)
 
     while True:
         obs, done = env.reset(), False
