@@ -29,6 +29,7 @@ def parse_args():
     # Environment
     parser.add_argument("--env", type=str, default="Pong", help="name of the game")
     parser.add_argument("--seed", type=int, default=42, help="which seed to use")
+    parser.add_argument("--random-action", type=float, default=0., help="probability of selecting a random action (for more risk sensitivity)")
     # Core DQN parameters
     parser.add_argument("--replay-buffer-size", type=int, default=int(1e6), help="replay buffer size")
     parser.add_argument("--lr", type=float, default=1e-4, help="learning rate for Adam optimizer")
@@ -88,6 +89,8 @@ if __name__ == '__main__':
 
     # Create and seed the env.
     env, monitored_env = dqn_core.make_env(args.env)
+    if args.random_action > 0:
+        env = dqn_core.ActionRandomizer(env, args.random_action)
     if args.seed > 0:
         set_global_seeds(args.seed)
         env.unwrapped.seed(args.seed)
@@ -111,14 +114,15 @@ if __name__ == '__main__':
         cvar_func=cvar_func,
         num_actions=env.action_space.n,
         optimizer=tf.train.AdamOptimizer(learning_rate=args.lr),
-        gamma=0.95,
+        gamma=0.99,
         nb_atoms=args.nb_atoms
     )
 
     # Create the schedule for exploration starting from 1.
+    final_p = 0 if args.random_action > 0 else 0.01
     exploration = LinearSchedule(schedule_timesteps=int(0.1 * args.num_steps),
                                  initial_p=1.0,
-                                 final_p=0.01)
+                                 final_p=final_p)
     # approximate_num_iters = args.num_steps / 4
     # exploration = PiecewiseSchedule([
     #     (0, 1.0),
