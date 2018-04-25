@@ -33,7 +33,7 @@ def main():
         batch_size=32
     )
     print("Saving model to cartpole_model.pkl")
-    act.save("models/cartpole_model.pkl")
+    act.save("../models/cartpole_model.pkl")
 
 
 if __name__ == '__main__':

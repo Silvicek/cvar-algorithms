@@ -47,7 +47,7 @@ def main():
         batch_size=32
     )
     print("Saving model to mountaincar_model.pkl")
-    act.save("models/mountaincar_model.pkl")
+    act.save("../models/mountaincar_model.pkl")
 
 
 if __name__ == '__main__':

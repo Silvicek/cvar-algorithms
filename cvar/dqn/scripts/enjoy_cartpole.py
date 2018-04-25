@@ -6,7 +6,7 @@ from cvar.common.plots import PlotMachine
 
 def main():
     env = gym.make("CartPole-v0")
-    act = dqn_core.load("models/cartpole_model.pkl")
+    act = dqn_core.load("../models/cartpole_model.pkl")
     action_set = dqn_core.actions_from_env(env)
     plot_machine = PlotMachine(act.get_nb_atoms(), env.action_space.n, action_set)
     alpha = 1.0

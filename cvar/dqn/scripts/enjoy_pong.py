@@ -5,7 +5,7 @@ from cvar.common.plots import PlotMachine
 
 def main():
     env, _ = dqn_core.make_env("Pong")
-    act = dqn_core.load("models/pong_model.pkl")
+    act = dqn_core.load("../models/pong_model.pkl")
     print(act)
     action_set = dqn_core.actions_from_env(env)
     plot_machine = PlotMachine(act.get_nb_atoms(), env.action_space.n, action_set)

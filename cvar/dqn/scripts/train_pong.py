@@ -28,7 +28,7 @@ def main():
         batch_size=32,
         nb_atoms=50
     )
-    act.save("models/pong_model.pkl")
+    act.save("../models/pong_model.pkl")
     env.close()
 
 
