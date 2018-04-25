@@ -24,6 +24,8 @@ def parse_args():
     boolean_flag(parser, "visual", default=False, help="whether or not to show the distribution output")
 
     parser.add_argument("--alpha", type=str, default=1.0, help="alpha in CVaR_alpha(x_0)")
+    parser.add_argument("--random-action", type=float, default=0.,
+                        help="probability of selecting a random action (for more risk sensitivity)")
 
     return parser.parse_args()
 
@@ -60,7 +62,12 @@ def play(env, act, stochastic, video_path, nb_atoms):
 if __name__ == '__main__':
     with U.make_session(4) as sess:
         args = parse_args()
+        if args.env == 'Frogger':
+            import cvar.dqn.frogger
         env, _ = dqn_core.make_env(args.env)
+
+        if args.random_action > 0:
+            env = dqn_core.ActionRandomizer(env, args.random_action)
 
         model_parent_path = dqn_core.parent_path(args.model_dir)
         old_args = json.load(open(model_parent_path + '/args.json'))

@@ -102,7 +102,10 @@ class ActionValueFunction:
 
         v_update = lr_v - indicator_mask * (lr_v / self.atoms[1:])
 
+        # TODO: check
+        # TODO: test different var updates
         self.Q[x.y, x.x, a].V += np.sum(v_update, axis=0)
+        # self.Q[x.y, x.x, a].V += np.average(v_update, axis=0, weights=lr_yc)
 
         yCn = self.atoms[1:] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0)
         self.Q[x.y, x.x, a].yc = (1 - beta) * yC + beta * np.average(yCn, axis=0, weights=lr_yc)

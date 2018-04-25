@@ -315,7 +315,7 @@ def extract_distribution(transition_p, t_atoms, var_values):
 # ===================================================================
 # Other
 # ===================================================================
-
+# TODO: move to common
 def var_cvar_from_samples(samples, alpha):
     samples = np.sort(samples)
     alpha_ix = int(np.round(alpha * len(samples)))
