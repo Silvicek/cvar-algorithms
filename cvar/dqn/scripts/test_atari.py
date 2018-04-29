@@ -24,6 +24,8 @@ def parse_args():
     parser.add_argument("--random-action", type=float, default=0.,
                         help="probability of selecting a random action (for more risk sensitivity)")
 
+    parser.add_argument("--nb-episodes", type=int, default=1000, help="run how many episodes")
+
     return parser.parse_args()
 
 
@@ -50,6 +52,8 @@ def run(env, act, stochastic, nb_episodes):
 if __name__ == '__main__':
     with U.make_session(4) as sess:
         args = parse_args()
+        if args.env == 'Frogger':
+            import cvar.dqn.frogger
         env, _ = dqn_core.make_env(args.env)
 
         if args.random_action > 0:
@@ -67,7 +71,7 @@ if __name__ == '__main__':
             nb_atoms=old_args['nb_atoms'])
         U.load_state(os.path.join(args.model_dir, "saved"))
 
-        rewards = run(env, act, args.stochastic, 100)
+        rewards = run(env, act, args.stochastic, args.nb_episodes)
 
     print('---------------------')
     for alpha in np.arange(0.05, 1.05, 0.05):
