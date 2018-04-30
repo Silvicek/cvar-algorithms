@@ -5,15 +5,48 @@ import numpy as np
 from ple.games.base.pygamewrapper import PyGameWrapper
 
 from pygame.constants import K_w, K_a, K_s, K_d
-from ple.games.primitives import Player, Creep
 from ple.games.utils import percent_round_int
 
 BG_COLOR = (255, 255, 255)
 
 
-# class GameObject:
-#
-#     def __init__(self, position, radius, color):
+class GameObject(pygame.sprite.Sprite):
+
+    def __init__(self, position, radius, color):
+        super().__init__()
+        self.position = position
+        self.velocity = np.zeros(position.shape)
+        self.radius = radius
+        self.color = color
+
+        image = pygame.Surface([radius * 2, radius * 2])
+        image.set_colorkey((0, 0, 0))
+
+        pygame.draw.circle(
+            image,
+            color,
+            (radius, radius),
+            radius,
+            0
+        )
+
+        self.image = image.convert()
+        self.rect = self.image.get_rect()
+
+    def draw(self, screen):
+        self.rect = pygame.Rect(self.position[0]-self.radius, self.position[1]-self.radius, self.radius, self.radius)
+        screen.blit(self.image, self.rect)
+
+    def update(self, velocity, dt):
+        self.velocity += velocity
+
+        self.position = self.position + self.velocity * dt
+
+        self.velocity *= 0.975
+
+    @staticmethod
+    def distance(a, b):
+        return np.sqrt(np.sum(np.square(a.position - b.position)))
 
 
 class IceLake(PyGameWrapper):
@@ -35,22 +68,23 @@ class IceLake(PyGameWrapper):
         "down": K_s
     }
 
+    rewards = {
+        "tick": -10. / 30,
+        "loss": -100.0,
+        "win": 100.0,
+        "wall": -100. / 30,
+    }
+
     def __init__(self, width=256, height=256):
 
         PyGameWrapper.__init__(self, width, height, actions=self.actions)
 
-        self.dx = 0
-        self.dy = 0
+        self.dx = 0.
+        self.dy = 0.
         self.ticks = 0
 
         self._game_ended = False
 
-        self.rewards = {
-            "tick": -1./30,
-            "loss": -100.0,
-            "win": 100.0,
-            "wall": -100./30
-        }
 
     def _handle_player_events(self):
         self.dx = 0.0
@@ -82,7 +116,7 @@ class IceLake(PyGameWrapper):
             Gets a non-visual state representation of the game.
             XXX: should be a dict, to np in preprocess
         """
-        return np.array([self.player.pos.x, self.player.pos.y, self.player.vel.x, self.player.vel.y])
+        return np.hstack((self.player.position, self.player.velocity))
 
     def getGameStateDims(self):
         """
@@ -96,7 +130,7 @@ class IceLake(PyGameWrapper):
         return np.array([(0, self.width, 50), (0, self.height, 50), (-200, 200, 2), (-200, 200, 2)], dtype=object)
 
     def getScore(self):
-        return self.score
+        return self._score
 
     def game_over(self):
         """
@@ -109,46 +143,21 @@ class IceLake(PyGameWrapper):
             Starts/Resets the game to its initial state
         """
         target_radius = percent_round_int(self.width, 0.047)
-        self.target = Creep(
-            color=(40, 140, 40),
-            radius=target_radius,
-            pos_init=(self.width-target_radius, target_radius),
-            dir_init=(1, 1),
-            speed=0.0,
-            reward=1.0,
-            TYPE="-",
-            SCREEN_WIDTH=self.width,
-            SCREEN_HEIGHT=self.height,
-            jitter_speed=0.0
-        )
+        self.target = GameObject(np.array([self.width-target_radius, target_radius]), target_radius, (40, 140, 40))
 
-        self.ice = Creep(
-            color=(0, 110, 255),
-            radius=percent_round_int(self.width, 0.265),
-            pos_init=(self.width/2, self.height/2),
-            dir_init=(1, 1),
-            speed=0.0,
-            reward=1.0,
-            TYPE="-",
-            SCREEN_WIDTH=self.width,
-            SCREEN_HEIGHT=self.height,
-            jitter_speed=0.0
-        )
+        self.ice = GameObject(np.array([self.width/2, self.height/2]),
+                              percent_round_int(self.width, 0.265), (0, 110, 255))
+
         player_radius = percent_round_int(self.width, 0.047)
-        self.player = Player(
-            radius=player_radius,
-            color=(60, 60, 140),
-            speed=0.2 * self.width,
-            pos_init=(1+player_radius, self.height-1-player_radius),
-            SCREEN_WIDTH=self.width,
-            SCREEN_HEIGHT=self.height)
+        self.player = GameObject(np.array([1+player_radius, self.height-1-player_radius]),
+                                 player_radius, (60, 60, 140))
         self.playerGroup = pygame.sprite.GroupSingle(self.player)
 
         self.creeps = pygame.sprite.Group()
         self.creeps.add(self.target)
         self.creeps.add(self.ice)
 
-        self.score = 0
+        self._score = 0.
         self.ticks = 0
         self.lives = -1
 
@@ -162,40 +171,48 @@ class IceLake(PyGameWrapper):
         self.ticks += 1
         self.screen.fill(BG_COLOR)
 
-        self.score += self.rewards["tick"]
+        self._score += IceLake.rewards["tick"]
 
         self._handle_player_events()
-        self.player.update(self.dx, self.dy, dt)
+        self.player.update(np.array([self.dx, self.dy]), dt)
 
         if self.wall_collide():
-            self.score += self.rewards['wall']
+            # self._game_ended = True
+            # self._score += self.rewards['loss']a
+            self._score += IceLake.rewards['wall']
 
-        # if vec2d_distance(self.ice.pos, self.player.pos) < self.ice.radius:
-        #     print(vec2d_distance(self.ice.pos, self.player.pos), self.ice.radius)
-        #     if np.random.rand() < 0.01:
-        #         self.game_ended = True
-        #         self.score += self.rewards['loss']
-        # elif vec2d_distance(self.target.pos, self.player.pos) < self.target.radius:
-        #     self.game_ended = True
-        #     self.score += self.rewards['win']
-        if pygame.sprite.spritecollide(self.ice, self.playerGroup, False):  # TODO: investigate weird collisions
-            if np.random.rand() < 0.1:
-                self.game_ended = True
-                self.score += self.rewards['loss']
-        elif pygame.sprite.spritecollide(self.target, self.playerGroup, False):
-            self.game_ended = True
-            self.score += self.rewards['win']
-        # print(vec2d_distance(self.target.pos, self.player.pos))
-        # print((self.target.pos.x, self.target.pos.y), (self.player.pos.x, self.player.pos.y))
+        if GameObject.distance(self.ice, self.player) < self.ice.radius:
+            if np.random.rand() < 0.01:
+                self._game_ended = True
+                self._score += IceLake.rewards['loss']
+        elif GameObject.distance(self.target, self.player) < self.target.radius:
+            self._game_ended = True
+            self._score += IceLake.rewards['win']
 
+        self.target.draw(self.screen)
+        self.ice.draw(self.screen)
         self.player.draw(self.screen)
-        self.creeps.draw(self.screen)
 
     def wall_collide(self):
-        x = self.player.pos.x
-        y = self.player.pos.y
-        return x <= 0 or x >= self.width - self.player.radius * 2 or \
-               y <= 0 or y >= self.height - self.player.radius * 2
+        x = self.player.position[0]
+        y = self.player.position[1]
+        r = self.player.radius
+        collision = True
+        if x < r:
+            self.player.position[0] = r
+            self.player.velocity[0] = 0
+        elif x > self.width - r:
+            self.player.position[0] = self.width - r
+            self.player.velocity[0] = 0
+        elif y < r:
+            self.player.position[1] = r
+            self.player.velocity[1] = 0
+        elif y > self.height - r:
+            self.player.position[1] = self.height - r
+            self.player.velocity[1] = 0
+        else:
+            collision = False
+        return collision
 
 
 def vec2d_distance(a, b):
@@ -216,3 +233,6 @@ if __name__ == "__main__":
             dt = game.clock.tick_busy_loop(30)
             game.step(dt)
             pygame.display.update()
+        print("Episode reward", game.getScore())
+
+
