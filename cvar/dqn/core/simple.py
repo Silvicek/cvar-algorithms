@@ -174,8 +174,10 @@ def learn(env,
     sess = make_session(num_cpu=num_cpu)
     sess.__enter__()
 
+    obs_space_shape = env.observation_space.shape
+
     def make_obs_ph(name):
-        return U.BatchInput(env.observation_space.shape, name=name)
+        return U.BatchInput(obs_space_shape, name=name)
 
     act, train, update_target, debug = build_train(
         make_obs_ph=make_obs_ph,
