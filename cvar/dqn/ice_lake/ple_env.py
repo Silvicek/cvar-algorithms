@@ -4,6 +4,17 @@ from ple import PLE
 import numpy as np
 
 
+class LazyDrawPLE(PLE):
+
+    def __init__(self, draw_function, args, **kwargs):
+        super().__init__(args, **kwargs)
+        self.draw_function = draw_function
+
+    def getScreenRGB(self):
+        self.draw_function()
+        return super().getScreenRGB()
+
+
 class Env(gym.Env):
     metadata = {'render.modes': ['human', 'rgb_array']}
 
@@ -13,7 +24,7 @@ class Env(gym.Env):
         game_module_name = ('cvar.dqn.ice_lake.%s' % game_name).lower()
         game_module = importlib.import_module(game_module_name)
         game = getattr(game_module, game_name)()
-        self.game_state = PLE(game, fps=30, display_screen=display_screen,
+        self.game_state = LazyDrawPLE(game.draw, game, fps=30, display_screen=display_screen,
                               state_preprocessor=state_preprocessor)
         self.game_state.init()
         self._action_set = sorted(self.game_state.getActionSet(), key=lambda x: (x is None, x))

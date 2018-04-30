@@ -189,6 +189,7 @@ class IceLake(PyGameWrapper):
             self._game_ended = True
             self._score += IceLake.rewards['win']
 
+    def draw(self):
         self.target.draw(self.screen)
         self.ice.draw(self.screen)
         self.player.draw(self.screen)
