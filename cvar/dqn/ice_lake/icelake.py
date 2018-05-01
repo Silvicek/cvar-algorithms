@@ -70,12 +70,12 @@ class IceLake(PyGameWrapper):
 
     rewards = {
         "tick": -10. / 30,
-        "loss": -100.0,
+        "ice": -50.0,
         "win": 100.0,
-        "wall": -100. / 30,
+        "wall": -100.,
     }
 
-    def __init__(self, width=256, height=256):
+    def __init__(self, width=128, height=128):
 
         PyGameWrapper.__init__(self, width, height, actions=self.actions)
 
@@ -84,7 +84,6 @@ class IceLake(PyGameWrapper):
         self.ticks = 0
 
         self._game_ended = False
-
 
     def _handle_player_events(self):
         self.dx = 0.0
@@ -177,14 +176,13 @@ class IceLake(PyGameWrapper):
         self.player.update(np.array([self.dx, self.dy]), dt)
 
         if self.wall_collide():
-            # self._game_ended = True
-            # self._score += self.rewards['loss']a
+            self._game_ended = True
             self._score += IceLake.rewards['wall']
 
         if GameObject.distance(self.ice, self.player) < self.ice.radius:
-            if np.random.rand() < 0.01:
+            if np.random.random() < 0.01:
                 self._game_ended = True
-                self._score += IceLake.rewards['loss']
+                self._score += IceLake.rewards['ice']
         elif GameObject.distance(self.target, self.player) < self.target.radius:
             self._game_ended = True
             self._score += IceLake.rewards['win']
@@ -199,16 +197,16 @@ class IceLake(PyGameWrapper):
         y = self.player.position[1]
         r = self.player.radius
         collision = True
-        if x < r:
+        if x <= r:
             self.player.position[0] = r
             self.player.velocity[0] = 0
-        elif x > self.width - r:
+        elif x >= self.width - r:
             self.player.position[0] = self.width - r
             self.player.velocity[0] = 0
-        elif y < r:
+        elif y <= r:
             self.player.position[1] = r
             self.player.velocity[1] = 0
-        elif y > self.height - r:
+        elif y >= self.height - r:
             self.player.position[1] = self.height - r
             self.player.velocity[1] = 0
         else:
@@ -216,14 +214,10 @@ class IceLake(PyGameWrapper):
         return collision
 
 
-def vec2d_distance(a, b):
-    return np.sqrt((a.x-b.x)**2 + (a.y-b.y)**2)
-
-
 if __name__ == "__main__":
 
     pygame.init()
-    game = IceLake(width=256, height=256)
+    game = IceLake(width=84, height=84)
     game.screen = pygame.display.set_mode(game.getScreenDims(), 0, 32)
     game.clock = pygame.time.Clock()
     game.rng = np.random.RandomState(24)
@@ -233,6 +227,7 @@ if __name__ == "__main__":
         while not game.game_over():
             dt = game.clock.tick_busy_loop(30)
             game.step(dt)
+            game.draw()
             pygame.display.update()
         print("Episode reward", game.getScore())
 

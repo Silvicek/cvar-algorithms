@@ -1,12 +1,12 @@
 import pickle
 import numpy as np
-import plots.grid
+import cvar.gridworld.plots.grid as grid
 import matplotlib
 import matplotlib.pyplot as plt
-from q_learning.q_learning import ActionValueFunction, MarkovQState
-from value_iteration.value_iteration import ValueFunction, MarkovState
+from cvar.gridworld.algorithms.q_learning import ActionValueFunction, MarkovQState
+from cvar.gridworld.algorithms.value_iteration import ValueFunction, MarkovState
 from cycler import cycler
-from util.runs import epoch
+from cvar.gridworld.core.runs import epoch
 
 model_path = '../data/models/'
 plots_path = '../data/plots/'
@@ -28,7 +28,7 @@ def optimal_paths_grids(file_name, save_name=None, vi=False):
             img = np.array([model.V[ix].cvar_alpha(alpha) for ix in np.ndindex(model.V.shape)]).reshape(model.V.shape)
         else:
             img = np.max(np.array([model.Q[ix].yc_alpha(alpha)/alpha for ix in np.ndindex(model.Q.shape)]).reshape(model.Q.shape), axis=-1)
-        plots.grid.grid_plot(world, img=img, figax=(fig, ax), sg_size=10)
+        grid.grid_plot(world, img=img, figax=(fig, ax), sg_size=10)
 
         path = model.optimal_path(alpha)
         print(path)
@@ -40,8 +40,6 @@ def optimal_paths_grids(file_name, save_name=None, vi=False):
         plt.show()
     else:
         plt.savefig(plots_path+save_name, bbox_inches='tight')
-
-
 
 
 # ============================= RUNS -> stats
@@ -88,7 +86,8 @@ if __name__ == '__main__':
 
     # sample_histograms(0.05, suffix='10_15')
 
-    optimal_paths_grids('vi_40_60.pkl', 'vi_optimal_paths.pdf', vi=True)
+    # optimal_paths_grids('vi_40_60.pkl', 'vi_optimal_paths.pdf', vi=True)
+    optimal_paths_grids('q_10_15.pkl', 'q_optimal_paths.pdf', vi=False)
 
 
 
