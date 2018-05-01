@@ -99,8 +99,8 @@ class InteractivePlotMachine:
         # combination of all actions
         V_x = self.V.V[y, x].var
         yc_x = self.V.V[y, x].yc
-        self.state_ax[0].step(self.V.V[y, x].atoms, list(V_x) + [V_x[-1]], '--', where='post')
-        self.state_ax[1].plot(self.V.V[y, x].atoms, np.insert(yc_x, 0, 0), '--')
+        self.state_ax[1].step(self.V.V[y, x].atoms, list(V_x) + [V_x[-1]], '--', where='post')
+        self.state_ax[0].plot(self.V.V[y, x].atoms, np.insert(yc_x, 0, 0), '--')
 
         # titles
         self.state_fig.suptitle("(y={}, x={})".format(y, x))
@@ -127,8 +127,8 @@ class InteractivePlotMachine:
         # combination of all actions
         V_x = self.V.joint_action_dist(State(y, x))
         yc_x = self.V.joint_action_dist(State(y, x), True)
-        self.state_ax[2].step(self.V.atoms, list(V_x) + [V_x[-1]], '--', where='post')
-        self.state_ax[1].plot(self.V.atoms, np.insert(yc_x, 0, 0), '--')
+        self.state_ax[1].step(self.V.atoms, list(V_x) + [V_x[-1]], '--', where='post')
+        self.state_ax[2].plot(self.V.atoms, np.insert(yc_x, 0, 0), '--')
 
         # titles
         self.state_fig.suptitle("(y={}, x={})".format(y, x))

@@ -18,7 +18,7 @@ class ActionValueFunction:
             self.Q[ix] = MarkovQState(self.atoms)
 
     def update_safe(self, x, a, x_, r, beta, id=None):
-        """ TD update that ensures yCVaR convexity. """
+        """ Naive TD update that ensures yCVaR convexity. """
         V_x = self.joint_action_dist(x_)
 
         for v in V_x:
@@ -57,7 +57,7 @@ class ActionValueFunction:
                     self.Q[x.y, x.x, a].yc[i] = max(yCn, self.Q[x.y, x.x, a].yc[i-1] + ddy*self.atom_p[i])
 
     def update_naive(self, x, a, x_, r, beta, id=None):
-        """ CVaR TD update. """
+        """ Naive (read slow) CVaR TD update. """
         V_x = self.joint_action_dist(x_)
         print('standard')
         # TODO: vectorize/cythonize
@@ -87,8 +87,8 @@ class ActionValueFunction:
         quit()
 
     def update(self, x, a, x_, r, beta, id=None):
-        """ CVaR TD update. """
-        V_x = self.joint_action_dist(x_)
+        """ Vectorized CVaR TD update. """
+        d = self.joint_action_dist(x_)
 
         V = np.array(self.Q[x.y, x.x, a].V)
         yC = np.array(self.Q[x.y, x.x, a].yc)
@@ -96,18 +96,17 @@ class ActionValueFunction:
         lr_v = beta * self.atom_p[:, np.newaxis]
         lr_yc = beta * self.atom_p
 
-        # row is a single atom update
+        # column is a single atom update
         # shape=(n, n)
-        indicator_mask = self.Q[x.y, x.x, a].V >= r + gamma * V_x[:, np.newaxis]
+        indicator_mask = self.Q[x.y, x.x, a].V >= r + gamma * d[:, np.newaxis]
 
         v_update = lr_v - indicator_mask * (lr_v / self.atoms[1:])
 
         # TODO: check
         # TODO: test different var updates
         self.Q[x.y, x.x, a].V += np.sum(v_update, axis=0)
-        # self.Q[x.y, x.x, a].V += np.average(v_update, axis=0, weights=lr_yc)
 
-        yCn = self.atoms[1:] * V + np.clip(r + gamma * V_x[:, np.newaxis] - V, None, 0)
+        yCn = self.atoms[1:] * V + np.clip(r + gamma * d[:, np.newaxis] - V, None, 0)
         self.Q[x.y, x.x, a].yc = (1 - beta) * yC + beta * np.average(yCn, axis=0, weights=lr_yc)
 
     def next_action_alpha(self, x, alpha):
@@ -184,15 +183,21 @@ class MarkovQState:
         if ax is None:
             _, ax = plt.subplots(1, 3)
 
-        # var
-        ax[0].step(self.atoms, list(self.V) + [self.V[-1]], 'o-', where='post')
-
         # yC
-        ax[1].plot(self.atoms, np.insert(self.yc, 0, 0), 'o-')
+        ax[0].plot(self.atoms, np.insert(self.yc, 0, 0), 'o-')
 
         # yC-> var
         v = self.dist_from_yc()
-        ax[2].step(self.atoms, list(v) + [v[-1]], 'o-', where='post')
+        ax[1].step(self.atoms, list(v) + [v[-1]], 'o-', where='post')
+
+        # var
+        ax[2].step(self.atoms, list(self.V) + [self.V[-1]], 'o-', where='post')
+
+        # titles
+        ax[0].set_title('yCVaR')
+        ax[1].set_title('Extracted Distribution')
+        ax[2].set_title('VaR')
+
         if show:
             plt.show()
 

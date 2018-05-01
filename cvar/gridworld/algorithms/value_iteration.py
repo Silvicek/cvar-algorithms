@@ -169,10 +169,14 @@ class ValueFunction:
         var = var_a[a]
         yc = yc_a[a]
         # var
-        ax[0].step(self.V[y, x].atoms, list(var) + [var[-1]], 'o-', where='post')
+        ax[1].step(self.V[y, x].atoms, list(var) + [var[-1]], 'o-', where='post')
 
-        # yV
-        ax[1].plot(self.V[y, x].atoms, np.insert(yc, 0, 0), 'o-')
+        # yC
+        ax[0].plot(self.V[y, x].atoms, np.insert(yc, 0, 0), 'o-')
+
+        ax[0].set_title('yCVaR')
+        ax[1].set_title('Extracted Distribution')
+
         if show:
             plt.show()
 
@@ -194,10 +198,11 @@ class MarkovState:
             fig, ax = figax
 
         # var
-        ax[0].step(self.atoms, list(self.var) + [self.var[-1]], 'o-', where='post')
+        ax[1].step(self.atoms, list(self.var) + [self.var[-1]], 'o-', where='post')
 
-        # yV
-        ax[1].plot(self.atoms, np.insert(self.yc, 0, 0), 'o-')
+        # yC
+        ax[0].plot(self.atoms, np.insert(self.yc, 0, 0), 'o-')
+
         if show:
             plt.show()
 
