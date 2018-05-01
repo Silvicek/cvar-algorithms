@@ -82,9 +82,6 @@ class ActionValueFunction:
                 # UPDATE CVaR
                 yCn = (1 - lr_yc) * yC + lr_yc * (atom*V + min(0, r+gamma*v - V))
                 self.Q[x.y, x.x, a].yc[i] = yCn
-                # print(atom*V + min(0, r+gamma*v - V), end=', ')
-        print(self.Q[x.y, x.x, a].yc)
-        quit()
 
     def update(self, x, a, x_, r, beta, id=None):
         """ Vectorized CVaR TD update. """
@@ -102,8 +99,6 @@ class ActionValueFunction:
 
         v_update = lr_v - indicator_mask * (lr_v / self.atoms[1:])
 
-        # TODO: check
-        # TODO: test different var updates
         self.Q[x.y, x.x, a].V += np.sum(v_update, axis=0)
 
         yCn = self.atoms[1:] * V + np.clip(r + gamma * d[:, np.newaxis] - V, None, 0)
@@ -142,18 +137,51 @@ class ActionValueFunction:
         return [ycv[1] for ycv in info]
 
     def var_alpha(self, x, a, alpha):
-        # TODO: check
+        """
+        Get VaR_alpha using interpolation
+        """
         i = 0
         for i in range(len(self.atoms)):
             if alpha < self.atoms[i]:
                 break
-        return self.Q[x.y, x.x, a].V[i-1]
+        v_low = self.Q[x.y, x.x, a].V[i-2]
+        v_high = self.Q[x.y, x.x, a].V[i-1]
+
+        p_low = self.atoms[i-1]
+        p_high = self.atoms[i]
+
+        return v_low + (alpha - p_low) / (p_high - p_low) * (v_high - v_low)
+
+    def alpha_from_var(self, x, s):
+        """
+        Get alpha from joint VaRs using interpolation
+        """
+        var = self.joint_action_dist_var(x)
+        for i in range(len(var)):
+            if s < var[i]:
+                break
+
+        # clip alpha to lowest atom (less won't make a difference)
+        if i == 0:
+            return self.atoms[1]
+        # 1 is max
+        elif s > var[-1]:
+            return 1.
+
+        v_low = var[i-1]
+        v_high = var[i]
+
+        p_low = self.atoms[i]
+        p_high = self.atoms[i+1]
+
+        return p_low + (s - v_low) / (v_high - v_low) * (p_high - p_low)
 
     def optimal_path(self, alpha):
         """ Optimal deterministic path. """
-        from cvar.gridworld.core.policies import VarBasedQPolicy, XiBasedQPolicy, NaiveQPolicy
+        from cvar.gridworld.core.policies import VarBasedQPolicy, XiBasedQPolicy, NaiveQPolicy, VarXiQPolicy
         from cvar.gridworld.core.runs import optimal_path
-        policy = VarBasedQPolicy(self, alpha)
+        # policy = VarBasedQPolicy(self, alpha)
+        policy = VarXiQPolicy(self, alpha)
         # policy = XiBasedQPolicy(self, alpha)
         # policy = NaiveQPolicy(self, alpha)
         return optimal_path(self.world, policy)
@@ -248,12 +276,12 @@ class MarkovQState:
 
 
 @timed
-def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
+def q_learning(world, alpha, max_episodes=2e3, max_episode_length=100):
     Q = ActionValueFunction(world, spaced_atoms(NB_ATOMS, SPACING, LOG_NB_ATOMS, LOG_THRESHOLD))
 
     # learning parameters
-    eps = 0.4
-    beta = .6
+    eps = 0.5
+    beta = 0.4
 
     # count visits for debugging purposes
     counter = np.zeros((world.height, world.width), dtype=int)
@@ -264,27 +292,22 @@ def q_learning(world, alpha, max_episodes=2e3, max_episode_length=2e2):
             print("e:{}, beta:{}".format(e, beta))
             beta = max(beta*0.995, 0.01)
         x = world.initial_state
-        a = eps_greedy(Q.next_action_alpha(x, alpha), eps, world.ACTIONS)
-        s = Q.var_alpha(x, a, alpha)
+
         i = 0
         while x not in world.goal_states and i < max_episode_length:
 
             counter[x.y, x.x] += 1
 
-            a = eps_greedy(Q.next_action_s(x, s), eps, world.ACTIONS)
+            a = eps_greedy(Q.next_action_alpha(x, alpha), eps, world.ACTIONS)
             t = world.sample_transition(x, a)
             x_, r = t.state, t.reward
 
-            Q.update(x, a, x_, r, beta, (e, i))
+            Q.update(x, a, x_, r, beta, id=(e, i))
 
-            s = (s-r)/gamma
             x = x_
 
             i += 1
         e += 1
-
-        # if x in world.goal_states and r == -1:
-        #     print('(success)')
 
     # # show visit counts
     # import matplotlib.pyplot as plt

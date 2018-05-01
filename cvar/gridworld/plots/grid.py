@@ -128,7 +128,7 @@ class InteractivePlotMachine:
         V_x = self.V.joint_action_dist(State(y, x))
         yc_x = self.V.joint_action_dist(State(y, x), True)
         self.state_ax[1].step(self.V.atoms, list(V_x) + [V_x[-1]], '--', where='post')
-        self.state_ax[2].plot(self.V.atoms, np.insert(yc_x, 0, 0), '--')
+        self.state_ax[0].plot(self.V.atoms, np.insert(yc_x, 0, 0), '--')
 
         # titles
         self.state_fig.suptitle("(y={}, x={})".format(y, x))

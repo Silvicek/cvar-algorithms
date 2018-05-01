@@ -221,6 +221,35 @@ class VarBasedQPolicy(Policy):
         self.s = None
 
 
+class VarXiQPolicy(Policy):
+    """ For Q-learning with CVaR. """
+    __name__ = 'VaRXi-based CVaR'
+
+    def __init__(self, Q, alpha):
+        self.Q = Q
+        self.alpha = alpha
+        self.orig_alpha = alpha
+        self.s = None
+
+    def next_action(self, t):
+        x, r = t.state, t.reward
+
+        if self.s is None:
+            a = self.Q.next_action_alpha(x, self.alpha)
+        else:
+            s = (self.s - t.reward) / gamma
+            self.alpha = self.Q.alpha_from_var(x, s)
+            a = self.Q.next_action_alpha(x, self.alpha)
+        print(self.alpha)
+        self.s = self.Q.var_alpha(x, a, self.alpha)
+
+        return a
+
+    def reset(self):
+        self.s = None
+        self.alpha = self.orig_alpha
+
+
 class XiBasedQPolicy(Policy):
     """ For Q-learning with CVaR. """
     __name__ = 'VaR-based CVaR'
