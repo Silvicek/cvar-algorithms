@@ -88,7 +88,6 @@ class DiscreteVisualEnv(Env):
 
     # return: (states, observations)
     def _reset(self):
-        self.observation_space = spaces.Box(low=0, high=255, shape=(self.screen_width, self.screen_height, 3))
         self.game_state.reset_game()
         state = self._get_image()
         return state
@@ -109,7 +108,6 @@ class DiscreteStateEnv(Env):
         return state, reward, terminal, {}
 
     def _reset(self):
-        self.observation_space = spaces.Discrete(len(self.game_state.getGameState()))
         self.game_state.reset_game()
         return self.game_state.getGameState()
 
