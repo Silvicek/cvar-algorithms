@@ -142,9 +142,10 @@ class IceLake(PyGameWrapper):
             Starts/Resets the game to its initial state
         """
         target_radius = percent_round_int(self.width, 0.047)
-        self.target = GameObject(np.array([self.width-target_radius, target_radius]), target_radius, (40, 140, 40))
+        self.target = GameObject(np.array([self.width-target_radius, self.height-target_radius]),
+                                 target_radius, (40, 140, 40))
 
-        self.ice = GameObject(np.array([self.width/2, self.height/2]),
+        self.ice = GameObject(np.array([self.width/2, self.height*3/4]),
                               percent_round_int(self.width, 0.265), (0, 110, 255))
 
         player_radius = percent_round_int(self.width, 0.047)
