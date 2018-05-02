@@ -3,6 +3,7 @@ import numpy as np
 from cvar.common.plots import PlotMachine
 from cvar.dqn.scripts.train_ice import make_env
 
+# TODO: unify with simple? add args
 def main():
     env = make_env("IceLakeRGB-v0")
     act = dqn_core.load("../models/ice_rgb_model.pkl")
@@ -15,7 +16,7 @@ def main():
         episode_rew = 0
         while not done:
             env.render()
-            obs, rew, done, _ = env.step(act(np.array(obs)[None])[0])
+            obs, rew, done, _ = env.step(act(np.array(obs)[None], 1.0)[0])
             plot_machine.plot_distribution(np.array(obs)[None])
             episode_rew += rew
         print("Episode reward", episode_rew)

@@ -37,16 +37,15 @@ def mlp(hiddens, layer_norm=False):
         representing the CVaRy of the CVaR DQN algorithm
     """
 
-    def last_layer(name, hiddens, inpt, num_actions, nb_atoms, scope,
-                   reuse_main=False, reuse_last=False, layer_norm=False):
+    def last_layer(name, inpt, num_actions, nb_atoms, scope, reuse_main=False, reuse_last=False):
         out = _mlp(hiddens, inpt, scope + '/net', reuse_main, layer_norm)
         with tf.variable_scope('{}/{}'.format(scope, name), reuse=reuse_last):
             out = layers.fully_connected(out, num_outputs=num_actions * nb_atoms, activation_fn=None)
             out = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name='out')
         return out
 
-    var_func = lambda *args, **kwargs: last_layer('var', hiddens, layer_norm=layer_norm, *args, **kwargs)
-    cvar_func = lambda *args, **kwargs: last_layer('cvar', hiddens, layer_norm=layer_norm, *args, **kwargs)
+    var_func = lambda *args, **kwargs: last_layer('var', *args, **kwargs)
+    cvar_func = lambda *args, **kwargs: last_layer('cvar', *args, **kwargs)
 
     return var_func, cvar_func
 
@@ -92,15 +91,14 @@ def cnn_to_mlp(convs, hiddens, layer_norm=False):
         representing the CVaRy of the CVaR DQN algorithm
     """
 
-    def last_layer(name, convs, hiddens, inpt, num_actions, nb_atoms, scope,
-                   reuse_main=False, reuse_last=False, layer_norm=False):
+    def last_layer(name, inpt, num_actions, nb_atoms, scope, reuse_main=False, reuse_last=False):
         out = _cnn_to_mlp(convs, hiddens, inpt, scope + '/net', reuse_main, layer_norm)
         with tf.variable_scope('{}/{}'.format(scope, name), reuse=reuse_last):
             out = layers.fully_connected(out, num_outputs=num_actions * nb_atoms, activation_fn=None)
             out = tf.reshape(out, shape=[-1, num_actions, nb_atoms], name='out')
         return out
 
-    var_func = lambda *args, **kwargs: last_layer('var', convs, hiddens, layer_norm=layer_norm, *args, **kwargs)
-    cvar_func = lambda *args, **kwargs: last_layer('cvar', convs, hiddens, layer_norm=layer_norm, *args, **kwargs)
+    var_func = lambda *args, **kwargs: last_layer('var', *args, **kwargs)
+    cvar_func = lambda *args, **kwargs: last_layer('cvar', *args, **kwargs)
 
     return var_func, cvar_func
