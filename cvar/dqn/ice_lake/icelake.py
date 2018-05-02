@@ -75,7 +75,7 @@ class IceLake(PyGameWrapper):
         "wall": -100.,
     }
 
-    def __init__(self, width=128, height=128):
+    def __init__(self, width=84, height=84):
 
         PyGameWrapper.__init__(self, width, height, actions=self.actions)
 
@@ -145,8 +145,9 @@ class IceLake(PyGameWrapper):
         self.target = GameObject(np.array([self.width-target_radius, self.height-target_radius]),
                                  target_radius, (40, 140, 40))
 
-        self.ice = GameObject(np.array([self.width/2, self.height*3/4]),
-                              percent_round_int(self.width, 0.265), (0, 110, 255))
+        ice_radius = percent_round_int(self.width, 0.3)
+        self.ice = GameObject(np.array([self.width/2, self.height-ice_radius]),
+                              ice_radius, (0, 110, 255))
 
         player_radius = percent_round_int(self.width, 0.047)
         self.player = GameObject(np.array([1+player_radius, self.height-1-player_radius]),
@@ -176,17 +177,16 @@ class IceLake(PyGameWrapper):
         self._handle_player_events()
         self.player.update(np.array([self.dx, self.dy]), dt)
 
-        if self.wall_collide():
+        if GameObject.distance(self.target, self.player) < self.target.radius:
+            self._game_ended = True
+            self._score += IceLake.rewards['win']
+        elif self.wall_collide():
             self._game_ended = True
             self._score += IceLake.rewards['wall']
-
-        if GameObject.distance(self.ice, self.player) < self.ice.radius:
+        elif GameObject.distance(self.ice, self.player) < self.ice.radius:
             if np.random.random() < 0.01:
                 self._game_ended = True
                 self._score += IceLake.rewards['ice']
-        elif GameObject.distance(self.target, self.player) < self.target.radius:
-            self._game_ended = True
-            self._score += IceLake.rewards['win']
 
     def draw(self):
         self.target.draw(self.screen)
@@ -218,7 +218,7 @@ class IceLake(PyGameWrapper):
 if __name__ == "__main__":
 
     pygame.init()
-    game = IceLake(width=84, height=84)
+    game = IceLake(width=256, height=256)
     game.screen = pygame.display.set_mode(game.getScreenDims(), 0, 32)
     game.clock = pygame.time.Clock()
     game.rng = np.random.RandomState(24)
