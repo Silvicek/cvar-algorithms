@@ -8,7 +8,7 @@ def main():
     env = make_env("IceLakeRGB-v0")
     act = dqn_core.load("../models/ice_rgb_model.pkl")
 
-    action_set = dqn_core.actions_from_env(env)
+    action_set = ['Left', 'Right', 'Down', 'Up']
     plot_machine = PlotMachine(act.get_nb_atoms(), env.action_space.n, action_set)
 
     while True:

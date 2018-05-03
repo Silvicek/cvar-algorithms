@@ -72,7 +72,7 @@ class IceLake(PyGameWrapper):
         "tick": -10. / 30,
         "ice": -50.0,
         "win": 100.0,
-        "wall": -100.,
+        "wall": 0.,
     }
 
     def __init__(self, width=84, height=84):
@@ -151,7 +151,7 @@ class IceLake(PyGameWrapper):
 
         player_radius = percent_round_int(self.width, 0.047)
         self.player = GameObject(np.array([1+player_radius, self.height-1-player_radius]),
-                                 player_radius, (60, 60, 140))
+                                 player_radius, (1, 1, 1))
         self.playerGroup = pygame.sprite.GroupSingle(self.player)
 
         self.creeps = pygame.sprite.Group()
@@ -181,7 +181,7 @@ class IceLake(PyGameWrapper):
             self._game_ended = True
             self._score += IceLake.rewards['win']
         elif self.wall_collide():
-            self._game_ended = True
+            self._game_ended = False
             self._score += IceLake.rewards['wall']
         elif GameObject.distance(self.ice, self.player) < self.ice.radius:
             if np.random.random() < 0.01:
@@ -197,21 +197,24 @@ class IceLake(PyGameWrapper):
         x = self.player.position[0]
         y = self.player.position[1]
         r = self.player.radius
-        collision = True
+        collision = False
         if x <= r:
             self.player.position[0] = r
             self.player.velocity[0] = 0
+            collision = True
         elif x >= self.width - r:
             self.player.position[0] = self.width - r
             self.player.velocity[0] = 0
-        elif y <= r:
+            collision = True
+        if y <= r:
             self.player.position[1] = r
             self.player.velocity[1] = 0
+            collision = True
         elif y >= self.height - r:
             self.player.position[1] = self.height - r
             self.player.velocity[1] = 0
-        else:
-            collision = False
+            collision = True
+
         return collision
 
 

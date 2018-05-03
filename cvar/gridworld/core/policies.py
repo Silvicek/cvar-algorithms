@@ -234,13 +234,11 @@ class VarXiQPolicy(Policy):
     def next_action(self, t):
         x, r = t.state, t.reward
 
-        if self.s is None:
-            a = self.Q.next_action_alpha(x, self.alpha)
-        else:
+        if self.s is not None:
             s = (self.s - t.reward) / gamma
             self.alpha = self.Q.alpha_from_var(x, s)
-            a = self.Q.next_action_alpha(x, self.alpha)
-        print(self.alpha)
+
+        a = self.Q.next_action_alpha(x, self.alpha)
         self.s = self.Q.var_alpha(x, a, self.alpha)
 
         return a

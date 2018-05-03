@@ -55,12 +55,12 @@ def generate_samples(world, policy, nb_episodes=1000):
 
 
 def sample_histograms(alpha, suffix):
-    from util.cvar_computation import var_cvar_from_samples
-    from policy_improvement.policies import GreedyPolicy, VarBasedQPolicy, XiBasedPolicy
+    from cvar.common.cvar_computation import var_cvar_from_samples
+    from cvar.gridworld.core.policies import GreedyPolicy, VarXiQPolicy
 
     # exp VI
     world, Q = pickle.load(open(model_path+'exp_'+suffix+'.pkl', 'rb'))
-    scores_exp = generate_samples(world, GreedyPolicy(Q))
+    scores_exp = generate_samples(world, GreedyPolicy(Q), nb_episodes=1000)
     v_exp, c_exp = var_cvar_from_samples(scores_exp, alpha)
     print('CVaR_{}(exp)={}'.format(alpha, c_exp))
 
@@ -70,24 +70,25 @@ def sample_histograms(alpha, suffix):
 
     # Q-learned
     world, Q = pickle.load(open('../data/models/q_'+suffix+'.pkl', 'rb'))
-    scores_q = generate_samples(world, VarBasedQPolicy(Q, alpha))
+    scores_q = generate_samples(world, VarXiQPolicy(Q, alpha), nb_episodes=1000)
     v_q, c_q = var_cvar_from_samples(scores_q, alpha)
     print('CVaR_{}(q)={}'.format(alpha, c_q))
-
+    fig = plt.figure(figsize=(5, 3))
+    plt.grid()
     plt.hist(scores_exp, density=True, bins=20, edgecolor='black')
     plt.hist(scores_q, density=True, bins=20, edgecolor='black')
     plt.legend(['Q-learning', 'CVaR Q-learning'])
 
-    # plt.savefig(plots_path + 'sample_hist.pdf', bbox_inches='tight')
-    plt.show()
+    plt.savefig(plots_path + 'sample_hist.pdf', bbox_inches='tight')
+    # plt.show()
 
 
 if __name__ == '__main__':
 
-    # sample_histograms(0.05, suffix='10_15')
+    sample_histograms(0.05, suffix='10_15')
 
     # optimal_paths_grids('vi_40_60.pkl', 'vi_optimal_paths.pdf', vi=True)
-    optimal_paths_grids('q_10_15.pkl', 'q_optimal_paths.pdf', vi=False)
+    # optimal_paths_grids('q_10_15.pkl', 'q_optimal_paths.pdf', vi=False)
 
 
 
