@@ -150,7 +150,8 @@ class IceLake(PyGameWrapper):
                               ice_radius, (0, 110, 255))
 
         player_radius = percent_round_int(self.width, 0.047)
-        self.player = GameObject(np.array([1+player_radius, self.height-1-player_radius]),
+        player_position = np.random.rand(2) * np.array([self.width, self.height])
+        self.player = GameObject(player_position,
                                  player_radius, (1, 1, 1))
         self.playerGroup = pygame.sprite.GroupSingle(self.player)
 
