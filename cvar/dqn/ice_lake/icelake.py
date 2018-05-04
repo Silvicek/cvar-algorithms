@@ -146,7 +146,7 @@ class IceLake(PyGameWrapper):
                                  target_radius, (40, 140, 40))
 
         ice_radius = percent_round_int(self.width, 0.3)
-        self.ice = GameObject(np.array([self.width/2, self.height-ice_radius]),
+        self.ice = GameObject(np.array([self.width/2, self.height-ice_radius/2]),
                               ice_radius, (0, 110, 255))
 
         player_radius = percent_round_int(self.width, 0.047)
@@ -181,9 +181,8 @@ class IceLake(PyGameWrapper):
             self._game_ended = True
             self._score += IceLake.rewards['win']
         elif self.wall_collide():
-            self._game_ended = False
             self._score += IceLake.rewards['wall']
-        elif GameObject.distance(self.ice, self.player) < self.ice.radius:
+        if GameObject.distance(self.ice, self.player) < self.ice.radius:
             if np.random.random() < 0.01:
                 self._game_ended = True
                 self._score += IceLake.rewards['ice']

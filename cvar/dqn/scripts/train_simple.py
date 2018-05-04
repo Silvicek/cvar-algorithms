@@ -10,7 +10,7 @@ def parse_args():
 
     parser.add_argument("--env", type=str, default="IceLake", help="name of the game")
     parser.add_argument("--random-action", type=float, default=0., help="probability of selecting a random action (for more risk sensitivity)")
-    parser.add_argument("--num-steps", type=int, default=5000, help="total number of steps to run the environment for")
+    parser.add_argument("--num-steps", type=int, default=50000, help="total number of steps to run the environment for")
     parser.add_argument("--buffer-size", type=int, default=50000, help="size of replay memory")
 
     # CVaR
@@ -28,7 +28,7 @@ def main():
         env = dqn_core.ActionRandomizer(env, args.random_action)
         exploration_final_eps = 0
     else:
-        exploration_final_eps = 0.0
+        exploration_final_eps = 0.01
 
     set_global_seeds(1337)
 
@@ -38,7 +38,7 @@ def main():
         var_func,
         cvar_func,
         nb_atoms=args.nb_atoms,
-        run_alpha=1.0,
+        run_alpha=args.run_alpha,
         lr=1e-3,
         max_timesteps=args.num_steps+1,
         buffer_size=args.buffer_size,
