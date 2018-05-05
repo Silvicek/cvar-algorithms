@@ -322,10 +322,10 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
 
         # ---------------------------------- CVaR loss ----------------------------------
         # Minimizing the MSE of:
-        # 1(V > r + gamma*v_j)*(r + gamma*v_j) - C_i)
-        #  negative indicator       dist_target  cvar_t_selected/y
+        # V_i + 1/y_i(Td_j - V_i)^- - C_i
 
-        cvar_loss = negative_indicator * (dist_target[:, :, None] - cvar_t_selected[:, None, :])
+        min_target_diff = negative_indicator / y * (dist_target[:, :, None] - var_t_selected[:, None, :])
+        cvar_loss = var_t_selected[:, None, :] + min_target_diff - cvar_t_selected[:, None, :]
 
         cvar_error = tf.reduce_mean(tf.square(cvar_loss))
 
