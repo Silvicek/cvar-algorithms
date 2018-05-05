@@ -314,7 +314,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
 
         negative_indicator = tf.cast(td_error < 0, tf.float32)
 
-        var_weights = y - negative_indicator
+        var_weights = y - negative_indicator  # XXX: stop gradient?
         quantile_loss = var_weights * td_error
 
         var_error = tf.reduce_mean(quantile_loss)
@@ -324,8 +324,8 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         # Minimizing the MSE of:
         # V_i + 1/y_i(Td_j - V_i)^- - C_i
 
-        min_target_diff = negative_indicator / y * (dist_target[:, :, None] - var_t_selected[:, None, :])
-        cvar_loss = var_t_selected[:, None, :] + min_target_diff - cvar_t_selected[:, None, :]
+        min_target_diff = negative_indicator / y * tf.stop_gradient(td_error)
+        cvar_loss = tf.stop_gradient(var_t_selected)[:, None, :] + min_target_diff - cvar_t_selected[:, None, :]
 
         cvar_error = tf.reduce_mean(tf.square(cvar_loss))
 
