@@ -38,7 +38,7 @@ class GameObject(pygame.sprite.Sprite):
         screen.blit(self.image, self.rect)
 
     def update(self, velocity, dt):
-        self.velocity += velocity
+        self.velocity = velocity*30
 
         self.position = self.position + self.velocity * dt
 
@@ -49,7 +49,7 @@ class GameObject(pygame.sprite.Sprite):
         return np.sqrt(np.sum(np.square(a.position - b.position)))
 
 
-class IceLake(PyGameWrapper):
+class DummyIceLake(PyGameWrapper):
     """
 
     Parameters
@@ -69,7 +69,7 @@ class IceLake(PyGameWrapper):
     }
 
     rewards = {
-        "tick": -30. / 30,
+        "tick": -5,
         "ice": -50.0,
         "win": 100.0,
         "wall": 0.,
@@ -109,13 +109,20 @@ class IceLake(PyGameWrapper):
 
                 if key == self.actions["down"]:
                     self.dy += agent_speed
+        return not (self.dx == self.dy == 0)
 
     def getGameState(self):
         """
             Gets a non-visual state representation of the game.
             XXX: should be a dict, to np in preprocess
         """
-        return np.hstack((self.player.position, self.player.velocity))
+        # return np.hstack((self.player.position, self.player.velocity))
+        out = np.zeros(100)
+        x = int(self.player.position[0]/self.width*10)
+        y = int(self.player.position[1]/self.height*10)
+        i = 10*y + x
+        out[i] = 1
+        return out
 
     def getGameStateDims(self):
         """
@@ -172,20 +179,22 @@ class IceLake(PyGameWrapper):
         self.ticks += 1
         self.screen.fill(BG_COLOR)
 
-        self._score += IceLake.rewards["tick"]
 
-        self._handle_player_events()
+
+        change = self._handle_player_events()
         self.player.update(np.array([self.dx, self.dy]), dt)
+        self._score += DummyIceLake.rewards["tick"]
+        if change:
 
-        if GameObject.distance(self.target, self.player) < self.target.radius:
-            self._game_ended = True
-            self._score += IceLake.rewards['win']
-        elif self.wall_collide():
-            self._score += IceLake.rewards['wall']
-        if GameObject.distance(self.ice, self.player) < self.ice.radius:
-            if np.random.random() < 0.02:
+            if GameObject.distance(self.target, self.player) < self.target.radius:
                 self._game_ended = True
-                self._score += IceLake.rewards['ice']
+                self._score += DummyIceLake.rewards['win']
+            elif self.wall_collide():
+                self._score += DummyIceLake.rewards['wall']
+            if GameObject.distance(self.ice, self.player) < self.ice.radius:
+                if np.random.random() < 0.05:
+                    self._game_ended = True
+                    self._score += DummyIceLake.rewards['ice']
 
     def draw(self):
         self.target.draw(self.screen)
@@ -220,7 +229,7 @@ class IceLake(PyGameWrapper):
 if __name__ == "__main__":
 
     pygame.init()
-    game = IceLake(width=256, height=256)
+    game = DummyIceLake(width=256, height=256)
     game.screen = pygame.display.set_mode(game.getScreenDims(), 0, 32)
     game.clock = pygame.time.Clock()
     game.rng = np.random.RandomState(24)
@@ -229,6 +238,7 @@ if __name__ == "__main__":
         game.init()
         while not game.game_over():
             dt = game.clock.tick_busy_loop(30)
+            game.getGameState()
             game.step(dt)
             game.draw()
             pygame.display.update()

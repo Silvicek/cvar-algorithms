@@ -112,5 +112,24 @@ class DiscreteStateEnv(Env):
         return self.game_state.getGameState()
 
 
+class DummyStateEnv(Env):
+
+    def __init__(self, game_name, display_screen=True):
+        super().__init__(game_name, display_screen)
+
+        self.action_space = spaces.Discrete(len(self._action_set))
+        self.observation_space = spaces.Box(low=0, high=1, shape=(100,))
+
+    def _step(self, a):
+        reward = self.game_state.act(self._action_set[a])
+        state = self.game_state.getGameState()
+        terminal = self.game_state.game_over()
+        return state, reward, terminal, {}
+
+    def _reset(self):
+        self.game_state.reset_game()
+        return self.game_state.getGameState()
+
+
 def state_preprocessor(s):
     return s
