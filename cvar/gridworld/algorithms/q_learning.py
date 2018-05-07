@@ -88,21 +88,21 @@ class ActionValueFunction:
         d = self.joint_action_dist(x_)
 
         V = np.array(self.Q[x.y, x.x, a].V)
-        yC = np.array(self.Q[x.y, x.x, a].yc)
+        C = np.array(self.Q[x.y, x.x, a].yc) / self.atoms[1:]
 
-        lr_v = beta * self.atom_p[:, np.newaxis]
-        lr_yc = beta * self.atom_p
-
-        # column is a single atom update
+        # row is a single atom update
         # shape=(n, n)
-        indicator_mask = self.Q[x.y, x.x, a].V >= r + gamma * d[:, np.newaxis]
+        indicator_mask = self.Q[x.y, x.x, a].V[:, None] >= r + gamma * d
 
-        v_update = lr_v - indicator_mask * (lr_v / self.atoms[1:])
+        V_update = 1 - indicator_mask / self.atoms[1:, None]
 
-        self.Q[x.y, x.x, a].V += np.sum(v_update, axis=0)
+        self.Q[x.y, x.x, a].V += beta * np.average(V_update, axis=1, weights=self.atom_p)
 
-        yCn = self.atoms[1:] * V + np.clip(r + gamma * d[:, np.newaxis] - V, None, 0)
-        self.Q[x.y, x.x, a].yc = (1 - beta) * yC + beta * np.average(yCn, axis=0, weights=lr_yc)
+        C_update = V[:, None] + np.clip(r + gamma * d - V[:, None], a_min=None, a_max=0) / self.atoms[1:, None]
+
+        C_new = (1 - beta) * C + beta * np.average(C_update, axis=1, weights=self.atom_p)
+        self.Q[x.y, x.x, a].yc = C_new * self.atoms[1:]
+
 
     def next_action_alpha(self, x, alpha):
         yc = [self.Q[x.y, x.x, a].yc_alpha(alpha) for a in self.world.ACTIONS]
