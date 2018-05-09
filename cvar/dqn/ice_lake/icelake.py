@@ -69,7 +69,7 @@ class IceLake(PyGameWrapper):
     }
 
     rewards = {
-        "tick": -30. / 30,
+        "tick": -40. / 30,
         "ice": -50.0,
         "win": 100.0,
         "wall": 0.,
@@ -170,7 +170,6 @@ class IceLake(PyGameWrapper):
         """
         dt /= 1000.0
         self.ticks += 1
-        self.screen.fill(BG_COLOR)
 
         self._score += IceLake.rewards["tick"]
 
@@ -188,6 +187,7 @@ class IceLake(PyGameWrapper):
                 self._score += IceLake.rewards['ice']
 
     def draw(self):
+        self.screen.fill(BG_COLOR)
         self.target.draw(self.screen)
         self.ice.draw(self.screen)
         self.player.draw(self.screen)
