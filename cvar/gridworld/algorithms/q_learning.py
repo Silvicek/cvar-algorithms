@@ -212,14 +212,14 @@ class MarkovQState:
             _, ax = plt.subplots(1, 3)
 
         # yC
-        ax[0].plot(self.atoms, np.insert(self.yc, 0, 0), 'o-')
+        ax[0].plot(self.atoms, np.insert(self.yc, 0, 0), '-')
 
         # yC-> var
         v = self.dist_from_yc()
-        ax[1].step(self.atoms, list(v) + [v[-1]], 'o-', where='post')
+        ax[1].step(self.atoms, list(v) + [v[-1]], '-', where='post')
 
         # var
-        ax[2].step(self.atoms, list(self.V) + [self.V[-1]], 'o-', where='post')
+        ax[2].step(self.atoms, list(self.V) + [self.V[-1]], '-', where='post')
 
         # titles
         ax[0].set_title('yCVaR')

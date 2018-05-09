@@ -19,7 +19,7 @@ def parse_args():
     parser.add_argument("--env", type=str, required=True, help="name of the game")
     parser.add_argument("--model-dir", type=str, default=None, help="load model from this directory. ")
     parser.add_argument("--video", type=str, default=None, help="Path to mp4 file where the video of first episode will be recorded.")
-    boolean_flag(parser, "stochastic", default=True, help="whether or not to use stochastic actions according to models eps value")
+    boolean_flag(parser, "stochastic", default=False, help="whether or not to use stochastic actions according to models eps value")
     boolean_flag(parser, "dueling", default=False, help="whether or not to use dueling model")
     boolean_flag(parser, "visual", default=False, help="whether or not to show the distribution output")
 

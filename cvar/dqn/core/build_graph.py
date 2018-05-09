@@ -314,7 +314,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
 
         negative_indicator = tf.cast(td_error < 0, tf.float32)
 
-        var_weights = y - negative_indicator  # XXX: stop gradient?
+        var_weights = tf.stop_gradient(y - negative_indicator)  # XXX: stop gradient?
         quantile_loss = var_weights * td_error
 
         var_error = tf.reduce_mean(quantile_loss)
