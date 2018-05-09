@@ -54,7 +54,7 @@ if __name__ == '__main__':
         args = parse_args()
         if args.env == 'Frogger':
             import cvar.dqn.frogger
-        env, _ = dqn_core.make_env(args.env)
+        env, _ = dqn_core.make_env_atari(args.env)
 
         if args.random_action > 0:
             env = dqn_core.ActionRandomizer(env, args.random_action)

@@ -1,14 +1,14 @@
 import cvar.dqn.core as dqn_core
 import numpy as np
 from cvar.common.plots import PlotMachine
-from cvar.dqn.scripts.train_ice import make_env
+from cvar.dqn.core.static import make_env_ice
 
 # TODO: unify with simple? add args
 def main():
-    env = make_env("IceLakeRGB-v0")
+    env = make_env_ice("IceLakeRGB-v0")
     act = dqn_core.load("../models/ice_rgb_model.pkl")
 
-    action_set = ['Left', 'Right', 'Down', 'Up']
+    action_set = ['Left', 'Right', 'Down', 'Up', '-']
     plot_machine = PlotMachine(act.get_nb_atoms(), env.action_space.n, action_set)
 
     while True:

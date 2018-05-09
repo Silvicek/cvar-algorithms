@@ -2,15 +2,15 @@
 import matplotlib.pyplot as plt
 import scipy.stats
 from cycler import cycler
-from util.util import softmax
+# from cvar.gridworld.core.util import softmax
 
-from util.constants import *
+from cvar.gridworld.core.constants import *
 
-plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728'])))
+# plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728'])))
 
 # tex
-# plt.rc('text', usetex=True)
-# plt.rc('font', family='serif')
+plt.rc('text', usetex=True)
+plt.rc('font', family='serif')
 # ====================
 
 
@@ -53,7 +53,7 @@ def plot_cvar_pdf(prob, vars, alpha, discrete=False):
         plt.show()
 
 
-if __name__ == '__main__':
+def cvar_multinomial():
     alpha = 0.05
 
     # student
@@ -85,6 +85,50 @@ if __name__ == '__main__':
 
     plot_cvar_pdf(prob, vars, alpha)
     # plot_cvar_pdf(atoms, var_values, alpha, discrete=True)
+
+
+def loss_functions():
+    # fig, ax = plt.subplots(1,4)
+
+    x = np.linspace(-1, 1, 201)
+    print(x)
+
+
+    y_mse = x ** 2
+
+    # y_10 = np.where(x >= 0, 0.1*x, (0.1-1)*(-x))
+    y_med = x * (0.5 - (x < 0))
+    y_30 = x * (0.3 - (x < 0))
+    y_70 = x * (0.7 - (x < 0))
+
+
+    fig = plt.figure(figsize=(5,4))
+    # y_90 = np.abs(x)
+    plt.plot(x, y_mse)
+    plt.plot(x, y_med)
+    plt.plot(x, y_30)
+    plt.plot(x, y_70)
+
+    axes = plt.gca()
+    axes.set_xlim([-1, 1])
+    axes.set_ylim([0, 1])
+
+    plt.grid()
+
+    plt.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
+    plt.tick_params(axis='y', which='both', left=False, labelleft=False)
+
+    plt.legend(['MSE', '$\\alpha=0.5$', '$\\alpha=0.3$', '$\\alpha=0.7$'])
+
+    plt.savefig('../data/plots/losses.pdf', bbox_inches='tight')
+    plt.show()
+
+if __name__ == '__main__':
+    loss_functions()
+
+
+
+
 
 
 

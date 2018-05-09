@@ -1,22 +1,11 @@
 import cvar.dqn.core as dqn_core
 from baselines.common import set_global_seeds
-from baselines.common.atari_wrappers import FrameStack, WarpFrame, NoopResetEnv, MaxAndSkipEnv
-import gym
-import cvar.dqn.ice_lake
-
-
-def make_env(game_name):
-    env = gym.make(game_name)
-    # env = NoopResetEnv(env, noop_max=30)
-    env = MaxAndSkipEnv(env, skip=4)
-    env = WarpFrame(env)
-    env = FrameStack(env, 4)
-    return env
+from cvar.dqn.core.static import make_env_ice
 
 
 def main():
     set_global_seeds(1337)
-    env = make_env("IceLakeRGB-v0")
+    env = make_env_ice("IceLakeRGB-v0")
 
     var_func, cvar_func = dqn_core.models.cnn_to_mlp(
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],

@@ -1,6 +1,7 @@
 import os
 import gym
 import numpy as np
+import tensorflow as tf
 
 
 def parent_path(path):
@@ -28,7 +29,7 @@ def actions_from_env(env):
             return [atari_actions[i] for i in actions]
 
 
-def make_env(game_name, random_action_eps=0.):
+def make_env_atari(game_name, random_action_eps=0.):
     from baselines.common.atari_wrappers import wrap_deepmind, make_atari
     env = make_atari(game_name + "NoFrameskip-v4")
     if random_action_eps > 0:
@@ -36,6 +37,31 @@ def make_env(game_name, random_action_eps=0.):
     monitored_env = SimpleMonitor(env)
     env = wrap_deepmind(monitored_env, frame_stack=True, scale=True)
     return env, monitored_env
+
+
+def make_env_ice(game_name):
+    from baselines.common.atari_wrappers import FrameStack, WarpFrame, MaxAndSkipEnv, ScaledFloatFrame
+    import gym
+    import cvar.dqn.ice_lake
+
+    env = gym.make(game_name)
+    env = MaxAndSkipEnv(env, skip=4)
+    env = WarpFrame(env)
+    env = FrameStack(env, 4)
+    env = ScaledFloatFrame(env)
+    return env
+
+
+def make_session(num_cpu):
+    tf_config = tf.ConfigProto(
+        inter_op_parallelism_threads=num_cpu,
+        intra_op_parallelism_threads=num_cpu)
+    gpu_frac = 0.25
+    tf_config.gpu_options.per_process_gpu_memory_fraction = gpu_frac
+    import warnings
+    warnings.warn("GPU is using a fixed fraction of memory: %.2f" % gpu_frac)
+
+    return tf.Session(config=tf_config)
 
 
 class ActionRandomizer(gym.ActionWrapper):

@@ -12,6 +12,7 @@ from baselines.common.schedules import LinearSchedule
 from .replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from .build_graph import build_act, build_train
 from cvar.common.util import timed
+from .static import make_session
 
 
 class ActWrapper(object):
@@ -24,7 +25,7 @@ class ActWrapper(object):
         with open(path, "rb") as f:
             model_data, act_params = dill.load(f)
         act = build_act(**act_params)
-        sess = U.make_session(num_cpu=num_cpu)
+        sess = make_session(num_cpu=num_cpu)
         sess.__enter__()
         with tempfile.TemporaryDirectory() as td:
             arc_path = os.path.join(td, "packed.zip")
@@ -76,18 +77,6 @@ def load(path, num_cpu=16):
         and returns actions.
     """
     return ActWrapper.load(path, num_cpu=num_cpu)
-
-
-def make_session(num_cpu):
-    tf_config = tf.ConfigProto(
-        inter_op_parallelism_threads=num_cpu,
-        intra_op_parallelism_threads=num_cpu)
-    # gpu_frac = 0.25
-    # tf_config.gpu_options.per_process_gpu_memory_fraction = gpu_frac
-    # import warnings
-    # warnings.warn("GPU is using a fixed fraction of memory: %.2f" % gpu_frac)
-
-    return tf.Session(config=tf_config)
 
 
 @timed

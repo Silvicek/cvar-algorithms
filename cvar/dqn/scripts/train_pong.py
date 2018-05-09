@@ -4,7 +4,7 @@ from baselines.common import set_global_seeds
 
 def main():
     set_global_seeds(1337)
-    env, _ = dqn_core.make_env("Pong")
+    env, _ = dqn_core.make_env_atari("Pong")
 
     var_func, cvar_func = dqn_core.models.cnn_to_mlp(
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
@@ -17,7 +17,7 @@ def main():
         var_func=var_func,
         cvar_func=cvar_func,
         lr=1e-4,
-        max_timesteps=int(2e6),
+        max_timesteps=2000000,
         buffer_size=100000,
         exploration_fraction=0.1,
         exploration_final_eps=0.01,
