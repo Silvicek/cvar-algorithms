@@ -215,9 +215,10 @@ def learn(env,
                     break
             # Take action and update exploration to the newest value
             update_eps = exploration.value(t)
+            alpha = np.random.random()
             update_param_noise_threshold = 0.
 
-            action = act(np.array(obs)[None], run_alpha, update_eps=update_eps)[0]
+            action = act(np.array(obs)[None], alpha, update_eps=update_eps)[0]
             reset = False
             new_obs, rew, done, _ = env.step(action)
 
@@ -284,6 +285,8 @@ def learn(env,
                     U.save_state(model_file)
                     model_saved = True
                     saved_mean_reward = mean_100ep_reward
+        # save anyways
+        U.save_state(model_file)
         if model_saved:
             if print_freq is not None:
                 logger.log("Restored model with mean reward: {}".format(saved_mean_reward))

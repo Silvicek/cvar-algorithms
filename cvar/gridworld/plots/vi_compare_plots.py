@@ -2,9 +2,19 @@
 Plots comparisons between tamar, sort, wasserstein.
 """
 import matplotlib.pyplot as plt
+import matplotlib
 from pulp import *
-from util import cvar_computation
+from cvar.gridworld.core import cvar_computation
 import numpy as np
+from cycler import cycler
+
+
+plt.rc('axes', prop_cycle=(cycler('color', ['#1f77b4', '#d62728'])))
+
+plt.rc('text', usetex=True)
+plt.rc('font', family='serif')
+matplotlib.rcParams.update({'font.size': 8})
+
 
 # TODO: fix and move
 def wasserstein_lp():
@@ -91,7 +101,7 @@ def exact_pv():
 def plot(*solutions, legend=True):
     # solution = (name, (prob, var))
 
-    fig, axs = plt.subplots(2, 2, figsize=(8, 8))
+    fig, axs = plt.subplots(1, 2, figsize=(7, 3))
     axs = np.array(axs)
     axs = axs.reshape(-1)
 
@@ -106,14 +116,14 @@ def plot(*solutions, legend=True):
     ax = axs[1]
     for _, (p, sol) in solutions:
         ax.plot(np.insert(np.cumsum(p), 0, 0), np.insert(np.cumsum(p * sol), 0, 0), 'o-')
-    ax.set_title('$\\alpha$CVaR')
+    ax.set_title('$y$CVaR$_y$')
 
-    # cvar
-    ax = axs[2]
-    for _, (p, sol) in solutions:
-        p, v = var_to_cvar_approx(p, sol)
-        ax.plot(p, v)
-    ax.set_title('CVaR')
+    # # cvar
+    # ax = axs[2]
+    # for _, (p, sol) in solutions:
+    #     p, v = var_to_cvar_approx(p, sol)
+    #     ax.plot(p, v)
+    # ax.set_title('CVaR')
 
     # cvar_s
     # ax = axs[3]
@@ -122,10 +132,10 @@ def plot(*solutions, legend=True):
     #     cv = [cvar_computation.single_cvar(p, sol, alpha) for alpha in a]
     #     ax.plot(s_range, cv)
     #
-    var_at_atoms = cvar_computation.var_vector(atoms, ex_p, ex_v)
-    a = np.array([cvar_computation.single_var_to_alpha(atom_p, var_at_atoms, s) for s in s_range])
-    cv = [cvar_computation.single_alpha_to_cvar(atom_p, ss, alpha) for alpha in a]
-    ax.plot(s_range, cv)
+    # var_at_atoms = cvar_computation.var_vector(atoms, ex_p, ex_v)
+    # a = np.array([cvar_computation.single_var_to_alpha(atom_p, var_at_atoms, s) for s in s_range])
+    # cv = [cvar_computation.single_alpha_to_cvar(atom_p, ss, alpha) for alpha in a]
+    # ax.plot(s_range, cv)
     # ax.set_title('CVaR(s)')
 
     # =====================================================
@@ -140,13 +150,15 @@ def plot(*solutions, legend=True):
 
     # grid: on
     for ax in axs:
+        # ax.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
+        # ax.tick_params(axis='y', which='both', left=False, labelleft=False)
         ax.grid()
 
     # hide upper x axis
     # plt.setp(ax[0].get_xticklabels(), visible=False)
 
-    plt.show()
-    # plt.savefig('files/exactvarcvar.pdf')
+    # plt.show()
+    plt.savefig('../data/plots/cvar_visualized.pdf', bbox_inches='tight')
 
 
 def var_to_cvar_approx(p, var, res=0.001):
@@ -222,6 +234,8 @@ if __name__ == '__main__':
     atoms = np.array([0., 0.25, 0.5, 0.75, 1.])
     atom_p = atoms[1:] - atoms[:-1]
 
+    t_atoms = np.tile(atoms, nb_transitions).reshape((nb_transitions, -1))
+
     var_values = np.array([[-0.5, 0.25, 0.5, 1],
                            [-3, -2, -1, 0]])
 
@@ -245,15 +259,15 @@ if __name__ == '__main__':
     print(var_values)
     print('-----------------------')
 
-    ss, _ = cvar_computation.v_yc_from_t(atoms, transition_p, var_values)
+    ss, _ = cvar_computation.v_yc_from_t(atoms, transition_p, var_values, t_atoms)
     # wm = wasserstein_median()
-    tam, _ = cvar_computation.v_yc_from_t_lp(atoms, transition_p, var_values)
+    # tam, _ = cvar_computation.v_yc_from_t_lp(atoms, transition_p, var_values, t_atoms)
 
     ex_p, ex_v = exact_pv()
 
     print('sort:', ss)
     # print('wasserstein med:', wm)
-    print('tamar:', tam)
+    # print('tamar:', tam)
 
     s_range = np.arange(ex_v[0], ex_v[-1]+0.05, 0.01)
     # plt.plot(s_range, [cvar_s(s, ss, atom_p) for s in s_range])
@@ -263,7 +277,7 @@ if __name__ == '__main__':
 
     # plot(exact_pv(), ('sort', ss), ('wasserstein', wm), ('tamar', tam))
     # plot(('Exact', (ex_p, ex_v)), ('CVaR VI', (atom_p, tam)), ('Wasserstein', (atom_p, wm)))
-    plot(('Exact', (ex_p, ex_v)), ('CVaR VI', (atom_p, tam)), ('CVaR sort', (atom_p, tam)))
+    plot(('Exact', (ex_p, ex_v)), ('CVaR VI', (atom_p, ss)))
     # plot(('Exact', (ex_p, ex_v)), ('CVaR VI', (atoms, tam)), ('Wasserstein', (atoms, wm)))
     # plot_process()
 

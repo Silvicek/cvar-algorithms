@@ -28,7 +28,7 @@ def main():
         env = dqn_core.ActionRandomizer(env, args.random_action)
         exploration_final_eps = 0
     else:
-        exploration_final_eps = 0.01
+        exploration_final_eps = 0.3
 
     set_global_seeds(1337)
 
@@ -42,7 +42,7 @@ def main():
         lr=1e-3,
         max_timesteps=args.num_steps+1,
         buffer_size=args.buffer_size,
-        exploration_fraction=0.2,
+        exploration_fraction=0.8,
         exploration_final_eps=exploration_final_eps,
         print_freq=10,
         batch_size=32

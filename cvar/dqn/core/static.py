@@ -56,7 +56,7 @@ def make_session(num_cpu):
     tf_config = tf.ConfigProto(
         inter_op_parallelism_threads=num_cpu,
         intra_op_parallelism_threads=num_cpu)
-    gpu_frac = 0.4
+    gpu_frac = 0.25
     tf_config.gpu_options.per_process_gpu_memory_fraction = gpu_frac
     import warnings
     warnings.warn("GPU is using a fixed fraction of memory: %.2f" % gpu_frac)
