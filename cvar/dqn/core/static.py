@@ -47,8 +47,8 @@ def make_env_ice(game_name):
     env = gym.make(game_name)
     env = MaxAndSkipEnv(env, skip=4)
     env = WarpFrame(env)
-    env = FrameStack(env, 4)
     env = ScaledFloatFrame(env)
+    env = FrameStack(env, 4)
     return env
 
 
@@ -56,7 +56,7 @@ def make_session(num_cpu):
     tf_config = tf.ConfigProto(
         inter_op_parallelism_threads=num_cpu,
         intra_op_parallelism_threads=num_cpu)
-    gpu_frac = 0.25
+    gpu_frac = 0.4
     tf_config.gpu_options.per_process_gpu_memory_fraction = gpu_frac
     import warnings
     warnings.warn("GPU is using a fixed fraction of memory: %.2f" % gpu_frac)
