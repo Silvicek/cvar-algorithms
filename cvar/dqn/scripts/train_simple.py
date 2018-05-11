@@ -45,7 +45,8 @@ def main():
         exploration_fraction=0.8,
         exploration_final_eps=exploration_final_eps,
         print_freq=10,
-        batch_size=32
+        batch_size=32,
+        periodic_save_path="../models/"+args.env.lower()
     )
     act.save("../models/"+args.env.lower()+"_model.pkl")
 

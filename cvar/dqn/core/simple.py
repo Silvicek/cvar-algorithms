@@ -99,6 +99,8 @@ def learn(env,
           target_network_update_freq=500,
           num_cpu=4,
           callback=None,
+          periodic_save_freq=1000000,
+          periodic_save_path=None
           ):
     """Train a CVaR DQN model.
 
@@ -137,7 +139,7 @@ def learn(env,
         how often to print out training progress
         set to None to disable printing
     checkpoint_freq: int
-        how often to save the model. This is so that the best version is restored
+        how often to save the best model. This is so that the best version is restored
         at the end of the training. If you do not wish to restore the best version at
         the end of the training set this variable to None.
     learning_starts: int
@@ -151,7 +153,10 @@ def learn(env,
     callback: (locals, globals) -> None
         function called at every steps with state of the algorithm.
         If callback returns true training stops.
-
+    periodic_save_freq: int
+        How often do we save the model - periodically
+    periodic_save_path: str
+        Where do we save the model - periodically
     Returns
     -------
     act: ActWrapper
@@ -276,6 +281,7 @@ def learn(env,
                 logger.record_tabular("% time spent exploring", int(100 * exploration.value(t)))
                 logger.dump_tabular()
 
+            # save and report best model
             if (checkpoint_freq is not None and t > learning_starts and
                     num_episodes > 100 and t % checkpoint_freq == 0):
                 if saved_mean_reward is None or mean_100ep_reward > saved_mean_reward:
@@ -285,8 +291,12 @@ def learn(env,
                     U.save_state(model_file)
                     model_saved = True
                     saved_mean_reward = mean_100ep_reward
-        # save anyways
-        U.save_state(model_file)
+
+            # save periodically
+            if periodic_save_freq is not None and periodic_save_path is not None and t > learning_starts:
+                if t % periodic_save_freq == 0:
+                    ActWrapper(act, act_params).save("{}-{}.pkl".format(periodic_save_path, int(t/periodic_save_freq)))
+
         if model_saved:
             if print_freq is not None:
                 logger.log("Restored model with mean reward: {}".format(saved_mean_reward))

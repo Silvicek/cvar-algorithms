@@ -16,8 +16,8 @@ def main():
         run_alpha=1.0,
         var_func=var_func,
         cvar_func=cvar_func,
-        lr=1e-4,
-        max_timesteps=int(2e6),
+        lr=1e-5,
+        max_timesteps=2000000 + 1,
         buffer_size=500000,
         exploration_fraction=0.8,
         exploration_final_eps=0.3,
@@ -27,7 +27,8 @@ def main():
         gamma=0.99,
         batch_size=32,
         nb_atoms=100,
-        print_freq=25
+        print_freq=25,
+        periodic_save_path="../models/ice_rgb"
     )
     act.save("../models/ice_rgb_model.pkl")
     env.close()
