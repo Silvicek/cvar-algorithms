@@ -45,7 +45,7 @@ def make_env_ice(game_name):
     import cvar.dqn.ice_lake
 
     env = gym.make(game_name)
-    env = MaxAndSkipEnv(env, skip=4)
+    # env = MaxAndSkipEnv(env, skip=4)
     env = WarpFrame(env)
     env = ScaledFloatFrame(env)
     env = FrameStack(env, 4)
