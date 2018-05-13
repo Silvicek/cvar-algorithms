@@ -100,7 +100,8 @@ def learn(env,
           num_cpu=4,
           callback=None,
           periodic_save_freq=1000000,
-          periodic_save_path=None
+          periodic_save_path=None,
+          grad_norm_clip=None,
           ):
     """Train a CVaR DQN model.
 
@@ -157,6 +158,8 @@ def learn(env,
         How often do we save the model - periodically
     periodic_save_path: str
         Where do we save the model - periodically
+    grad_norm_clip: float
+        Clip gradient to this value. No clipping if None
     Returns
     -------
     act: ActWrapper
@@ -180,7 +183,8 @@ def learn(env,
         num_actions=env.action_space.n,
         optimizer=tf.train.AdamOptimizer(learning_rate=lr),
         gamma=gamma,
-        nb_atoms=nb_atoms
+        nb_atoms=nb_atoms,
+        grad_norm_clipping=grad_norm_clip
     )
 
     act_params = {

@@ -335,10 +335,11 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
 
         error = var_error + cvar_error
         # compute optimization op (potentially with gradient clipping)
+        var_list = [joint_variables, var_variables, cvar_variables]
         if grad_norm_clipping is not None:
-            raise NotImplementedError('huber loss == norm clipping')
+            optimize_expr = U.minimize_and_clip(optimizer, error, var_list, clip_val=grad_norm_clipping)
         else:
-            optimize_expr = optimizer.minimize(error, var_list=[joint_variables, var_variables, cvar_variables])
+            optimize_expr = optimizer.minimize(error, var_list=var_list)
 
         # update_target_fn will be called periodically to copy cvar network to target cvar network
         # Note: var has no target
