@@ -83,8 +83,8 @@ def load(path, num_cpu=16):
 def learn(env,
           var_func,
           cvar_func,
-          run_alpha,
           nb_atoms,
+          run_alpha=None,
           lr=5e-4,
           max_timesteps=100000,
           buffer_size=50000,
@@ -224,7 +224,10 @@ def learn(env,
                     break
             # Take action and update exploration to the newest value
             update_eps = exploration.value(t)
-            alpha = np.random.random()
+            if run_alpha is None:
+                alpha = np.random.random()
+            else:
+                alpha = run_alpha
             update_param_noise_threshold = 0.
 
             action = act(np.array(obs)[None], alpha, update_eps=update_eps)[0]
