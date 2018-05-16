@@ -15,23 +15,23 @@ def main():
         env,
         var_func=var_func,
         cvar_func=cvar_func,
-        lr=1e-5,
+        lr=1e-4,
         max_timesteps=10000000 + 1,
         buffer_size=500000,
         exploration_fraction=0.2,
         exploration_final_eps=0.3,
         train_freq=4,
-        learning_starts=100000,
+        learning_starts=10000,
         target_network_update_freq=1000,
         gamma=0.99,
         batch_size=32,
         nb_atoms=100,
         print_freq=25,
-        periodic_save_path="../models/ice_rgb",
-        periodic_save_freq=500000,
+        periodic_save_path="../models/home4/ice_rgb",
+        periodic_save_freq=100000,
         grad_norm_clip=10.
     )
-    act.save("../models/ice_rgb_model.pkl")
+    act.save("../models/home4/ice_rgb_model.pkl")
     env.close()
 
 

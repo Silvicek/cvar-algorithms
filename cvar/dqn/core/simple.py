@@ -21,7 +21,7 @@ class ActWrapper(object):
         self._act_params = act_params
 
     @staticmethod
-    def load(path, num_cpu=16):
+    def load(path, num_cpu=4):
         with open(path, "rb") as f:
             model_data, act_params = dill.load(f)
         act = build_act(**act_params)
@@ -36,6 +36,19 @@ class ActWrapper(object):
             U.load_state(os.path.join(td, "model"))
 
         return ActWrapper(act, act_params)
+
+    @staticmethod
+    def reload(path):
+        with open(path, "rb") as f:
+            model_data, act_params = dill.load(f)
+
+        with tempfile.TemporaryDirectory() as td:
+            arc_path = os.path.join(td, "packed.zip")
+            with open(arc_path, "wb") as f:
+                f.write(model_data)
+
+            zipfile.ZipFile(arc_path, 'r', zipfile.ZIP_DEFLATED).extractall(td)
+            U.load_state(os.path.join(td, "model"))
 
     def __call__(self, *args, **kwargs):
         return self._act(*args, **kwargs)
@@ -211,8 +224,10 @@ def learn(env,
     saved_mean_reward = None
     obs = env.reset()
     reset = True
+    episode = 0
+    alpha = run_alpha
 
-    # ===== RUN =====
+    # --------------------------------- RUN ---------------------------------
     with tempfile.TemporaryDirectory() as td:
         model_saved = False
         model_file = os.path.join(td, "model")
@@ -224,10 +239,7 @@ def learn(env,
                     break
             # Take action and update exploration to the newest value
             update_eps = exploration.value(t)
-            if run_alpha is None:
-                alpha = np.random.random()
-            else:
-                alpha = run_alpha
+
             update_param_noise_threshold = 0.
 
             action = act(np.array(obs)[None], alpha, update_eps=update_eps)[0]
@@ -265,6 +277,8 @@ def learn(env,
                 obs = env.reset()
                 episode_rewards.append(0.0)
                 reset = True
+                if run_alpha is None:
+                    alpha = np.random.random()
 
             if t > learning_starts and t % train_freq == 0:
                 # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
@@ -286,6 +300,7 @@ def learn(env,
                 logger.record_tabular("episodes", num_episodes)
                 logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
                 logger.record_tabular("% time spent exploring", int(100 * exploration.value(t)))
+                logger.record_tabular("(current alpha)", int(100 * exploration.value(t)))
                 logger.dump_tabular()
 
             # save and report best model
