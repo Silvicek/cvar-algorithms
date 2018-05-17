@@ -137,7 +137,7 @@ class IceLake(PyGameWrapper):
         """
         return self._game_ended
 
-    def init(self):
+    def init2(self):
         """
             Starts/Resets the game to its initial state
         """
@@ -152,6 +152,11 @@ class IceLake(PyGameWrapper):
         player_radius = percent_round_int(self.width, 0.047)
         self.player = GameObject(np.array([1+player_radius, self.height-1-player_radius]),
                                  player_radius, (1, 1, 1))
+
+        # self.player = GameObject(np.array([np.random.randint(player_radius, self.width - player_radius),
+        #                                    np.random.randint(player_radius, self.height - player_radius)]),
+        #                          player_radius, (1, 1, 1))
+
         self.playerGroup = pygame.sprite.GroupSingle(self.player)
 
         self.creeps = pygame.sprite.Group()
@@ -163,6 +168,38 @@ class IceLake(PyGameWrapper):
         self.lives = -1
 
         self._game_ended = False
+
+    def init(self):
+            """
+                Starts/Resets the game to its initial state
+            """
+            ice_radius = percent_round_int(self.width, 0.3)
+            self.ice = GameObject(np.array([self.width / 2, self.height / 2]),
+                                  ice_radius, (0, 110, 255))
+
+            player_radius = percent_round_int(self.width, 0.047)
+            # self.player = GameObject(np.array([1 + player_radius, self.height - 1 - player_radius]),
+            #                          player_radius, (1, 1, 1))
+            self.player = GameObject(random_position(player_radius, self.width, self.height, ice_radius, self.ice.position),
+                                     player_radius, (1, 1, 1))
+
+            target_radius = percent_round_int(self.width, 0.047)
+
+            target_pos = - (self.player.position - self.ice.position) + self.ice.position
+            self.target = GameObject(target_pos,
+                                     target_radius, (40, 140, 40))
+
+            self.playerGroup = pygame.sprite.GroupSingle(self.player)
+
+            self.creeps = pygame.sprite.Group()
+            self.creeps.add(self.target)
+            self.creeps.add(self.ice)
+
+            self._score = 0.
+            self.ticks = 0
+            self.lives = -1
+
+            self._game_ended = False
 
     def step(self, dt):
         """
@@ -188,8 +225,8 @@ class IceLake(PyGameWrapper):
 
     def draw(self):
         self.screen.fill(BG_COLOR)
-        self.target.draw(self.screen)
         self.ice.draw(self.screen)
+        self.target.draw(self.screen)
         self.player.draw(self.screen)
 
     def wall_collide(self):
@@ -217,6 +254,15 @@ class IceLake(PyGameWrapper):
         return collision
 
 
+def random_position(player_radius, width, height, ice_radius, ice_pos):
+
+    while True:
+        pos = np.array([np.random.randint(player_radius, width - player_radius), np.random.randint(player_radius, height - player_radius)])
+        if np.sqrt(np.sum(np.square(pos - ice_pos))) > ice_radius:
+            return pos
+
+
+
 if __name__ == "__main__":
 
     pygame.init()
@@ -232,6 +278,7 @@ if __name__ == "__main__":
             game.step(dt)
             game.draw()
             pygame.display.update()
+            pygame.image.save(game.screen, 'icelake_mid.png')
         print("Episode reward", game.getScore())
 
 
