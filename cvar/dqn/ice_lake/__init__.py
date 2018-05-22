@@ -20,12 +20,3 @@ register(
     tags={'wrapper_config.TimeLimit.max_episode_steps': 500},
     nondeterministic=False,
 )
-
-
-register(
-    id='DummyIceLake-v0',
-    entry_point='cvar.dqn.ice_lake:DummyStateEnv',
-    kwargs={'game_name': 'DummyIceLake', 'display_screen': False},
-    tags={'wrapper_config.TimeLimit.max_episode_steps': 500},
-    nondeterministic=False,
-)

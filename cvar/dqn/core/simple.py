@@ -134,6 +134,10 @@ def learn(env,
         and returns a tensor of shape (batch_size, num_actions) with values of every action.
     cvar_func: function
         same as var_func
+    nb_atoms: int
+        number of atoms used in CVaR discretization
+    run_alpha: float
+        optimize CVaR_alpha while running. None if you want random alpha each episode.
     lr: float
         learning rate for adam optimizer
     max_timesteps: int

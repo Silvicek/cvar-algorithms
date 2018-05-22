@@ -14,7 +14,7 @@ class PlotMachine:
         self.limits = None
         self.yc_limits = None
 
-        self.fig, self.ax = plt.subplots(1, 3)
+        self.fig, self.ax = plt.subplots(1, 3, figsize=(8,4))
         self.fig.canvas.draw()
 
         self.yc_plot = [self.ax[0].plot(self.atoms, np.zeros(nb_atoms+1))[0] for _ in range(nb_actions)]
@@ -73,5 +73,6 @@ class PlotMachine:
 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
+        # plt.savefig('test.pdf')
         plt.pause(1e-10)
 

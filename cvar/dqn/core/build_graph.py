@@ -59,12 +59,6 @@ The functions in this file can are used to create the following functions:
 ======= update_target ========
 
     copy the parameters from optimized P function to the target P function.
-    TODO: ???
-    In distributional RL we actually optimize the following error:
-
-        ThTz(P') * log(P)
-
-    Where P' is lagging behind P to stabilize the learning.
 
 """
 import tensorflow as tf
@@ -85,7 +79,9 @@ def pick_actions(cvar_values):
     deterministic_actions = tf.argmax(cvar_values, axis=-1, output_type=tf.int32)
     return deterministic_actions
 
+
 debug_expressions = []
+
 
 def pick_action(cvar_values, alpha, nb_atoms):
     """
@@ -367,8 +363,8 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         # -------------------------------------------------------------------------------
 
         # --------------------------------- Debug ---------------------------------------
-        a = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], var_t_selected)
-        b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], cvar_t_selected)
+        # a = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], var_t_selected)
+        # b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], cvar_t_selected)
         # c = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], big_dist_target*y)
         # b = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], var_t)
         # c = U.function([obs_t_input, act_t_ph, rew_t_ph, obs_tp1_input, done_mask_ph], negative_indicator)
@@ -378,7 +374,7 @@ def build_train(make_obs_ph, var_func, cvar_func, num_actions, nb_atoms, optimiz
         # atoms = U.function([obs_tp1_input], atoms)
         # -------------------------------------------------------------------------------
 
-        return act_f, train, update_target, [a, b]
+        return act_f, train, update_target, []
 
 
 def gather_along_second_axis(data, indices):

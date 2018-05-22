@@ -261,7 +261,7 @@ def value_difference(V, V_, world):
         cvars = np.array([V.V[s.y, s.x].cvar_alpha(alpha) for alpha in V.V[s.y, s.x].atoms[1:]])
         cvars_ = np.array([V_.V[s.y, s.x].cvar_alpha(alpha) for alpha in V_.V[s.y, s.x].atoms[1:]])
         if cvars.shape != cvars_.shape:
-            return float('inf')
+            return float('inf'), None
         dist = np.max(np.abs(cvars - cvars_))
         if dist > max_val:
             max_state = s
@@ -304,7 +304,7 @@ if __name__ == '__main__':
     # ============================= new config
     tick()
     world = GridWorld(40, 60, random_action_p=0.05)
-    V = value_iteration(world, max_iters=1000)
+    V = value_iteration(world, max_iters=1000, eps_convergence=1e-5)
     pickle.dump((world, V), open('../data/models/vi_test.pkl', mode='wb'))
     tock()
     # ============================= load
