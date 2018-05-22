@@ -27,11 +27,11 @@ def main():
         batch_size=32,
         nb_atoms=100,
         print_freq=25,
-        periodic_save_path="../models/home4/ice_rgb",
+        periodic_save_path="../models/ice_rgb",
         periodic_save_freq=100000,
         grad_norm_clip=10.
     )
-    act.save("../models/home4/ice_rgb_model.pkl")
+    act.save("../models/ice_rgb_model.pkl")
     env.close()
 
 

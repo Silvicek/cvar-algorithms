@@ -8,8 +8,7 @@ def main():
 
     var_func, cvar_func = dqn_core.models.cnn_to_mlp(
         convs=[(32, 8, 4), (64, 4, 2), (64, 3, 1)],
-        # hiddens=[256],
-        hiddens=[512],
+        hiddens=[256],
     )
     act = dqn_core.learn(
         env,

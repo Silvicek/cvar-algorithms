@@ -1,11 +1,12 @@
-import cvar.dqn.core as dqn_core
+import gym
 import numpy as np
-from cvar.common.plots import PlotMachine
-from cvar.dqn.core.static import make_env_ice
 
-# TODO: unify with simple? add args
+import cvar.dqn.core as dqn_core
+from cvar.dqn.core.plots import PlotMachine
+
+
 def main():
-    env = make_env_ice("IceLakeRGB-v0")
+    env = dqn_core.make_env_ice("IceLakeRGB-v0")
     act = dqn_core.load("../models/ice_rgb_model.pkl")
 
     action_set = ['Left', 'Right', 'Down', 'Up', '-']
@@ -16,7 +17,7 @@ def main():
         episode_rew = 0
         while not done:
             env.render()
-            obs, rew, done, _ = env.step(act(np.array(obs)[None], 1.0)[0])
+            obs, rew, done, _ = env.step(act(np.array(obs)[None], 1.0, stochastic=False)[0])
             plot_machine.plot_distribution(np.array(obs)[None])
             episode_rew += rew
         print("Episode reward", episode_rew)

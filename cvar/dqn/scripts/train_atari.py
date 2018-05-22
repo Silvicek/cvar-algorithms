@@ -88,8 +88,6 @@ if __name__ == '__main__':
         savedir = os.getenv('OPENAI_LOGDIR', None)
 
     # Create and seed the env.
-    if args.env == 'Frogger':
-        import cvar.dqn.frogger
     env, monitored_env = dqn_core.make_env_atari(args.env)
     if args.random_action > 0:
         env = dqn_core.ActionRandomizer(env, args.random_action)

@@ -1,11 +1,10 @@
-import gym
-from gym.envs.registration import register
-import cvar.dqn.core as dqn_core
-from cvar.dqn.core.static import ActionRandomizer
-from cvar.common.plots import PlotMachine
 import argparse
+
+import gym
 from baselines.common.misc_util import boolean_flag
-import cvar.dqn.ice_lake
+
+import cvar.dqn.core as dqn_core
+from cvar.dqn.core.plots import PlotMachine
 
 
 def parse_args():
@@ -38,7 +37,7 @@ def main():
         episode_rew = 0
         while not done:
             env.render()
-            obs, rew, done, _ = env.step(act(obs[None], args.run_alpha)[0])
+            obs, rew, done, _ = env.step(act(obs[None], args.run_alpha, stochastic=False)[0])
             if args.visual:
                 plot_machine.plot_distribution(obs[None])
             episode_rew += rew

@@ -1,16 +1,14 @@
 import argparse
-import gym
-import os
-import numpy as np
 import json
-
-from gym.monitoring import VideoRecorder
+import os
 
 import baselines.common.tf_util as U
+import numpy as np
+from baselines.common.misc_util import boolean_flag
+from gym.monitoring import VideoRecorder
 
 import cvar.dqn.core as dqn_core
-from cvar.common.plots import PlotMachine
-from baselines.common.misc_util import boolean_flag
+from cvar.dqn.core.plots import PlotMachine
 
 
 def parse_args():
@@ -62,8 +60,6 @@ def play(env, act, stochastic, video_path, nb_atoms):
 if __name__ == '__main__':
     with U.make_session(4) as sess:
         args = parse_args()
-        if args.env == 'Frogger':
-            import cvar.dqn.frogger
         env, _ = dqn_core.make_env_atari(args.env)
 
         if args.random_action > 0:

@@ -18,7 +18,7 @@ def parse_args():
     # Environment
     parser.add_argument("--env", type=str, required=True, help="name of the game")
     parser.add_argument("--model-dir", type=str, required=True, help="load model from this directory. ")
-    boolean_flag(parser, "stochastic", default=True, help="whether or not to use stochastic actions according to models eps value")
+    boolean_flag(parser, "stochastic", default=False, help="whether or not to use stochastic actions according to models eps value")
 
     parser.add_argument("--alpha", type=str, default=1.0, help="alpha in CVaR_alpha(x_0)")
     parser.add_argument("--random-action", type=float, default=0.,
@@ -52,8 +52,6 @@ def run(env, act, stochastic, nb_episodes):
 if __name__ == '__main__':
     with U.make_session(4) as sess:
         args = parse_args()
-        if args.env == 'Frogger':
-            import cvar.dqn.frogger
         env, _ = dqn_core.make_env_atari(args.env)
 
         if args.random_action > 0:
