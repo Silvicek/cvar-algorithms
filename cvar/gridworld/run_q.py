@@ -5,12 +5,11 @@ from cvar.gridworld.algorithms.q_learning import q_learning
 
 if __name__ == '__main__':
     import pickle
-    np.random.seed(2)
 
     # ============================= new config
     run_alpha = 1.
     world = GridWorld(10, 15, random_action_p=0.1)
-    np.random.seed(20)
+
     Q = q_learning(world, run_alpha, max_episodes=10000)
 
     pickle.dump((world, Q), open('data/models/q_10_15.pkl', mode='wb'))

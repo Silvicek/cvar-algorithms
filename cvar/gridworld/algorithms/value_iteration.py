@@ -8,6 +8,7 @@ from cvar.common.util import timed, spaced_atoms
 # TAMAR_LP = True
 TAMAR_LP = False
 
+
 class ValueFunction:
 
     def __init__(self, world):
@@ -294,25 +295,4 @@ def value_iteration(world, V=None, max_iters=1e3, eps_convergence=1e-3):
         print('Iteration:{}, error={} ({})'.format(i, error, worst_state))
 
     return V
-
-
-if __name__ == '__main__':
-    import pickle
-    from cvar.gridworld.plots.grid import InteractivePlotMachine
-    from cvar.common.util import tick, tock
-    np.random.seed(2)
-    # ============================= new config
-    tick()
-    world = GridWorld(40, 60, random_action_p=0.05)
-    V = value_iteration(world, max_iters=1000, eps_convergence=1e-5)
-    pickle.dump((world, V), open('../data/models/vi_test.pkl', mode='wb'))
-    tock()
-    # ============================= load
-    world, V = pickle.load(open('../data/models/vi_test.pkl', 'rb'))
-
-    # ============================= RUN
-    for alpha in np.arange(0.05, 1.01, 0.05):
-        print(alpha)
-        pm = InteractivePlotMachine(world, V, alpha=alpha)
-        pm.show()
 

@@ -353,29 +353,3 @@ def eps_greedy(a, eps, action_space):
 
 def q_to_v_exp(Q):
     return np.max(np.array([Q.Q[ix].expected_value() for ix in np.ndindex(Q.Q.shape)]).reshape(Q.Q.shape), axis=-1)
-
-
-if __name__ == '__main__':
-    import time
-    import pickle
-    np.random.seed(2)
-    start = time.time()
-
-    # ============================= new config
-    run_alpha = 0.3
-    world = GridWorld(10, 15, random_action_p=0.1)
-    Q = q_learning(world, run_alpha, max_episodes=1000)
-    print('time=', time.time() - start)
-
-    pickle.dump((world, Q), open('../data/models/q_10_15.pkl', mode='wb'))
-
-    # ============================= load
-    world, Q = pickle.load(open('../data/models/q_10_15.pkl', 'rb'))
-
-    # ============================= RUN
-    print('ATOMS:', Q.atoms)
-
-    for alpha in np.arange(0.05, 1.05, 0.05):
-        print(alpha)
-        pm = InteractivePlotMachine(world, Q, alpha=alpha, action_value=True)
-        pm.show()
