@@ -15,7 +15,8 @@ def parse_args():
 
     # CVaR
     parser.add_argument("--nb-atoms", type=int, default=10, help="number of cvar and quantile atoms (linearly spaced)")
-    parser.add_argument("--run-alpha", type=float, default=1., help="alpha for policy used during training")
+    parser.add_argument("--run-alpha", type=float, default=1., help="alpha for policy used during training. -1 "
+                                                                    "means")
 
     return parser.parse_args()
 
@@ -38,7 +39,7 @@ def main():
         var_func,
         cvar_func,
         nb_atoms=args.nb_atoms,
-        run_alpha=args.run_alpha,
+        run_alpha=args.run_alpha if args.run_alpha > 0 else None,
         lr=1e-4,
         max_timesteps=args.num_steps+1,
         buffer_size=args.buffer_size,

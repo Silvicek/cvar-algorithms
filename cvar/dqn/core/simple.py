@@ -229,7 +229,7 @@ def learn(env,
     obs = env.reset()
     reset = True
     episode = 0
-    alpha = run_alpha
+    alpha = 1.
 
     # --------------------------------- RUN ---------------------------------
     with tempfile.TemporaryDirectory() as td:
@@ -304,7 +304,7 @@ def learn(env,
                 logger.record_tabular("episodes", num_episodes)
                 logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
                 logger.record_tabular("% time spent exploring", int(100 * exploration.value(t)))
-                logger.record_tabular("(current alpha)", int(100 * exploration.value(t)))
+                logger.record_tabular("(current alpha)", "%.2f" % alpha)
                 logger.dump_tabular()
 
             # save and report best model

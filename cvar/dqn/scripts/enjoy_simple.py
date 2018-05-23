@@ -5,6 +5,7 @@ from baselines.common.misc_util import boolean_flag
 
 import cvar.dqn.core as dqn_core
 from cvar.dqn.core.plots import PlotMachine
+import cvar.dqn.ice_lake
 
 
 def parse_args():

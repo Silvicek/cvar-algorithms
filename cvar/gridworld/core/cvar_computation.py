@@ -10,7 +10,6 @@ _from_t: extract the desired value from weighted list of distributions
 
 """
 import numpy as np
-from pulp import *
 
 
 # ===================================================================
@@ -116,6 +115,8 @@ def single_yc_lp_from_t(transition_p, t_atoms, yc_values, alpha, xis=False):
 
     return y_cvar[alpha]
     """
+    from pulp import LpVariable, LpProblem, value
+
     if alpha == 0:
         return 0.
 
